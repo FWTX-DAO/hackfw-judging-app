@@ -1,0 +1,36 @@
+{
+  "name": "hackfw-judging-app",
+  "module": "src/server/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"bun run dev:api\" \"bun run dev:web\"",
+    "dev:api": "bun --hot src/server/index.ts",
+    "dev:web": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "bun src/server/index.ts",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
+    "tailwindcss": "^4.2.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.2",
+    "@tailwindcss/vite": "^4.2.4",
+    "@tanstack/react-query": "^5.99.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.14.2",
+    "vite": "^8.0.9"
+  }
+}

@@ -1,0 +1,851 @@
+@import "tailwindcss";
+
+/* =============================================================
+   HACKFW // REINDUSTRIALIZATION TERMINAL
+   Industrial-Brutalist / Terminal aesthetic.
+   Stenciled steel plates, hazard stripes, CRT phosphor glow,
+   oscilloscope cyan for data, rust-amber for command.
+   ============================================================= */
+
+@theme {
+  /* ——— Oil / steel substrate ——— */
+  --color-void:         #08080A;   /* deep oil black */
+  --color-ink:          #0D0E11;   /* panel back */
+  --color-steel:        #15161B;   /* cold rolled steel */
+  --color-steel-raised: #1C1E25;   /* raised plate */
+  --color-steel-edge:   #23252E;   /* edge highlight */
+  --color-rivet:        #0A0A0C;   /* rivet shadow */
+
+  /* ——— Signal palette ——— */
+  --color-amber:        #FFB800;   /* hazard amber (command) */
+  --color-amber-bright: #FFD23F;   /* high-beam */
+  --color-amber-deep:   #A67200;   /* recessed amber */
+  --color-phosphor:     #A0F000;   /* CRT phosphor — LIVE */
+  --color-cyber:        #48D1FF;   /* blueprint cyan — data */
+  --color-cyber-deep:   #1B84AE;
+  --color-rust:         #D2401E;   /* alarm / danger */
+  --color-bone:         #EFE7D6;   /* stencil paint */
+  --color-bone-dim:     #C9C0B0;
+
+  /* ——— Ink — bumped contrast for accessibility (AA+ on void bg) ——— */
+  --color-text-primary:   #F5EEDF;  /* ~14.6:1 */
+  --color-text-secondary: #D6CFC2;  /* ~12.6:1 — body/meta */
+  --color-text-tertiary:  #A49B8E;  /* ~7.8:1  — labels/captions (was 3.5:1, too low) */
+  --color-text-faint:     #6B6355;  /* ruler / inert structural only */
+
+  /* ——— Glow / dim accents (rgba) ——— */
+  --glow-amber:    rgba(255, 184, 0, 0.35);
+  --glow-phosphor: rgba(160, 240, 0, 0.45);
+  --glow-cyber:    rgba(72, 209, 255, 0.40);
+  --glow-rust:     rgba(210, 64, 30, 0.45);
+  --dim-amber:     rgba(255, 184, 0, 0.08);
+  --dim-phosphor:  rgba(160, 240, 0, 0.08);
+  --dim-cyber:     rgba(72, 209, 255, 0.08);
+  --dim-rust:      rgba(210, 64, 30, 0.10);
+
+  /* ——— Borders ——— */
+  --color-border:        rgba(239, 231, 214, 0.07);
+  --color-border-strong: rgba(239, 231, 214, 0.14);
+  --color-border-amber:  rgba(255, 184, 0, 0.28);
+  --color-border-cyber:  rgba(72, 209, 255, 0.22);
+
+  /* ——— Fonts ——— */
+  --font-stencil: 'Big Shoulders Stencil Display', 'Stencil Std', Impact, sans-serif;
+  --font-chunk:   'Rubik Mono One', 'Impact', 'Arial Black', sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', monospace;
+
+  /* ——— Legacy aliases kept so components still read them ——— */
+  --color-surface:         var(--color-steel);
+  --color-surface-raised:  var(--color-steel-raised);
+  --color-surface-overlay: var(--color-steel-edge);
+  --color-amber-dim:       var(--dim-amber);
+  --color-amber-glow:      var(--glow-amber);
+  --color-cyber-dim:       var(--dim-cyber);
+  --font-heading:          var(--font-stencil);
+}
+
+/* =============================================================
+   RESET + BASE
+   ============================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background-color: var(--color-void);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 15px;      /* slightly larger for mobile/older eyes */
+  font-weight: 450;     /* half-step heavier than regular */
+  line-height: 1.65;
+  min-height: 100vh;
+  letter-spacing: 0.01em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Layered industrial atmosphere */
+  background-image:
+    /* faint blueprint grid */
+    linear-gradient(0deg,  transparent 95%, rgba(72, 209, 255, 0.025) 95%),
+    linear-gradient(90deg, transparent 95%, rgba(72, 209, 255, 0.025) 95%),
+    /* amber vignette bottom-left */
+    radial-gradient(ellipse at 10% 120%, rgba(255, 184, 0, 0.05), transparent 55%),
+    /* cyber vignette top-right */
+    radial-gradient(ellipse at 95% -10%, rgba(72, 209, 255, 0.04), transparent 55%);
+  background-size: 48px 48px, 48px 48px, auto, auto;
+  background-attachment: fixed;
+  position: relative;
+}
+
+/* Film-grain overlay (SVG data URI — no asset request). */
+body::before {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  mix-blend-mode: overlay;
+  opacity: 0.18;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.38 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Scanline overlay on the whole page, very subtle */
+body::after {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.18) 3px,
+    transparent 4px
+  );
+  opacity: 0.35;
+}
+
+/* =============================================================
+   SCROLLBAR — like a rail slider
+   ============================================================= */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 4px, rgba(239,231,214,0.04) 4px 5px),
+    var(--color-void);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-steel-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0;
+  box-shadow: inset 0 1px 0 rgba(239,231,214,0.05);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-steel-edge); }
+
+/* =============================================================
+   SELECTION
+   ============================================================= */
+
+::selection {
+  background: var(--color-amber);
+  color: var(--color-void);
+  text-shadow: none;
+}
+
+/* =============================================================
+   TYPOGRAPHY
+   ============================================================= */
+
+h1, h2, h3, h4 { margin: 0; font-weight: 800; letter-spacing: 0.01em; }
+
+.stencil {
+  font-family: var(--font-stencil);
+  font-weight: 800;
+  font-stretch: 100%;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+}
+
+.chunk {
+  font-family: var(--font-chunk);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Serial / callout text that appears in margins */
+.serial {
+  font-family: var(--font-mono);
+  font-size: 11px;          /* was 10 — harder to read on mobile */
+  line-height: 1.5;
+  letter-spacing: 0.22em;   /* was 0.28 — tight tracking hurt legibility at small sizes */
+  text-transform: uppercase;
+  color: var(--color-text-secondary); /* was tertiary — more readable */
+  font-weight: 500;
+}
+
+/* Phosphor-glow data readout */
+.readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-cyber);
+  text-shadow: 0 0 6px var(--glow-cyber), 0 0 14px rgba(72,209,255,0.2);
+  letter-spacing: 0.02em;
+}
+
+/* Amber readout (command, not data) */
+.readout-amber {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-amber);
+  text-shadow: 0 0 6px var(--glow-amber);
+}
+
+/* Stencil gradient wordmark — what HACKFW uses */
+.wordmark {
+  font-family: var(--font-stencil);
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 0.88;
+  letter-spacing: -0.01em;
+  background: linear-gradient(
+    180deg,
+    var(--color-bone) 0%,
+    var(--color-amber-bright) 45%,
+    var(--color-amber) 65%,
+    var(--color-amber-deep) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 0 rgba(0,0,0,0.6)) drop-shadow(0 0 30px var(--glow-amber));
+  position: relative;
+}
+
+/* Horizontal cut stripe that slices across stenciled wordmarks */
+.wordmark::after {
+  content: "";
+  position: absolute;
+  left: -4%; right: -4%;
+  top: 52%;
+  height: 4px;
+  background: var(--color-void);
+  mix-blend-mode: normal;
+  pointer-events: none;
+}
+
+/* =============================================================
+   INDUSTRIAL PLATE — the universal panel surface
+   ============================================================= */
+
+.plate {
+  position: relative;
+  background:
+    /* subtle inner vertical grain */
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 2px,
+      rgba(239, 231, 214, 0.012) 2px 3px
+    ),
+    linear-gradient(180deg, var(--color-steel-raised) 0%, var(--color-steel) 100%);
+  border: 1px solid var(--color-border-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 231, 214, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(0, 0, 0, 0.8);
+  border-radius: 3px;
+}
+
+/* Rivet corners on a plate — purely decorative */
+.plate--riveted::before,
+.plate--riveted::after {
+  content: "";
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #3d3f48 0%, #0c0d10 70%);
+  box-shadow: inset 0 1px 0 rgba(239,231,214,0.12), 0 1px 0 rgba(0,0,0,0.6);
+}
+.plate--riveted::before { top: 8px; left: 8px; }
+.plate--riveted::after  { top: 8px; right: 8px; }
+
+/* Tick-mark ruler that runs along the top edge of a plate */
+.plate--ruled {
+  background-image:
+    repeating-linear-gradient(to right,
+      transparent 0 11px,
+      var(--color-text-faint) 11px 12px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 2px,
+      rgba(239, 231, 214, 0.012) 2px 3px
+    ),
+    linear-gradient(180deg, var(--color-steel-raised) 0%, var(--color-steel) 100%);
+  background-size: 100% 6px, auto, auto;
+  background-repeat: no-repeat, repeat, no-repeat;
+  background-position: top left, 0 0, 0 0;
+  padding-top: 18px;
+}
+
+/* =============================================================
+   HAZARD STRIPES — used for warnings + presenting banner
+   ============================================================= */
+
+.hazard-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-amber) 0 14px,
+    #0A0A0C 14px 28px
+  );
+}
+
+.hazard-stripes--phosphor {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-phosphor) 0 14px,
+    #0A0A0C 14px 28px
+  );
+}
+
+.hazard-stripes--rust {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-rust) 0 14px,
+    #0A0A0C 14px 28px
+  );
+}
+
+/* =============================================================
+   SERIAL PLATE — tiny metal label on a corner
+   ============================================================= */
+
+.serial-plate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  background: linear-gradient(180deg, #23252E 0%, #15161B 100%);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 1px 0 rgba(239,231,214,0.08), 0 1px 0 rgba(0,0,0,0.6);
+}
+
+.serial-plate .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 6px var(--glow-amber);
+}
+
+.serial-plate--cyber .dot { background: var(--color-cyber); box-shadow: 0 0 6px var(--glow-cyber); }
+.serial-plate--live  .dot {
+  background: var(--color-phosphor);
+  box-shadow: 0 0 6px var(--glow-phosphor), 0 0 14px var(--glow-phosphor);
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.7); }
+}
+
+/* =============================================================
+   BUTTONS — press-plate feel
+   ============================================================= */
+
+.btn-primary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  padding: 13px 24px;
+  border-radius: 2px;
+  border: 1px solid #C08A00;
+  color: var(--color-void);
+  background:
+    linear-gradient(180deg, var(--color-amber-bright) 0%, var(--color-amber) 50%, var(--color-amber-deep) 100%);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    0 2px 0 #5C3F00,
+    0 6px 20px rgba(255, 184, 0, 0.25);
+  transition: transform 0.06s ease, box-shadow 0.2s ease, filter 0.2s;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+}
+.btn-primary::before {
+  content: "◼";
+  font-size: 8px; color: var(--color-void); opacity: 0.6;
+}
+.btn-primary:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.4),
+    0 2px 0 #5C3F00,
+    0 8px 28px rgba(255, 184, 0, 0.45);
+}
+.btn-primary:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 #5C3F00;
+}
+.btn-primary:disabled {
+  filter: grayscale(0.6) brightness(0.7);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary = recessed steel plate */
+.btn-secondary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  padding: 12px 22px;
+  border-radius: 2px;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-bone-dim);
+  background: linear-gradient(180deg, var(--color-steel-raised) 0%, var(--color-steel) 100%);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 231, 214, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.btn-secondary:hover {
+  color: var(--color-amber-bright);
+  border-color: var(--color-border-amber);
+  background: linear-gradient(180deg, var(--color-steel-edge) 0%, var(--color-steel-raised) 100%);
+}
+
+/* Tiny danger chip */
+.btn-danger {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  padding: 5px 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(210, 64, 30, 0.5);
+  color: var(--color-rust);
+  background: var(--dim-rust);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-danger:hover { background: rgba(210, 64, 30, 0.22); color: #FF6A44; }
+
+/* =============================================================
+   INPUT FIELDS — looks like a CRT text box
+   ============================================================= */
+
+.input-field {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-bone);
+  background:
+    linear-gradient(180deg, #0B0C10 0%, #0F1016 100%);
+  border: 1px solid var(--color-border-strong);
+  border-top-color: rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
+  padding: 11px 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  caret-color: var(--color-amber-bright);
+}
+.input-field::placeholder {
+  color: #827A6E;            /* AA on input bg — was almost invisible */
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  opacity: 1;                /* iOS defaults to 0.56; force full */
+}
+.input-field:focus {
+  border-color: var(--color-border-amber);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.6),
+    0 0 0 3px rgba(255, 184, 0, 0.12),
+    0 0 20px rgba(255, 184, 0, 0.08);
+}
+
+textarea.input-field { line-height: 1.55; }
+
+/* =============================================================
+   RANGE SLIDER — analog gauge feel
+   ============================================================= */
+
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  --fill: 50%;
+}
+
+/* Track */
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 1px;
+  background:
+    /* tick marks */
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 calc(11.11% - 1px),
+      rgba(239, 231, 214, 0.35) calc(11.11% - 1px) 11.11%
+    ),
+    linear-gradient(180deg, #0A0A0C 0%, #14151B 100%);
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.8);
+}
+input[type="range"]::-moz-range-track {
+  height: 10px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #0A0A0C 0%, #14151B 100%);
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Thumb — machined knob with amber glow */
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -7px;
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, var(--color-amber-bright) 0%, var(--color-amber) 50%, var(--color-amber-deep) 100%);
+  border: 1px solid #5C3F00;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 3px 0 #3B2900,
+    0 0 18px var(--glow-amber);
+  transition: box-shadow 0.15s, transform 0.06s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 3px 0 #3B2900,
+    0 0 28px var(--glow-amber),
+    0 0 60px rgba(255, 184, 0, 0.25);
+}
+input[type="range"]::-webkit-slider-thumb:active { transform: translateY(2px); }
+
+input[type="range"]::-moz-range-thumb {
+  width: 22px; height: 22px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-amber-bright) 0%, var(--color-amber) 50%, var(--color-amber-deep) 100%);
+  border: 1px solid #5C3F00;
+  box-shadow: 0 0 18px var(--glow-amber);
+}
+
+/* =============================================================
+   CARD — the judging project card
+   ============================================================= */
+
+.card-glow {
+  position: relative;
+  background: linear-gradient(180deg, var(--color-steel-raised) 0%, var(--color-steel) 100%);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 231, 214, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+}
+.card-glow:hover {
+  border-color: var(--color-border-amber);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 231, 214, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 0 28px rgba(255, 184, 0, 0.08);
+}
+.card-glow--live {
+  border-color: rgba(160, 240, 0, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 231, 214, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 0 32px rgba(160, 240, 0, 0.18);
+}
+.card-glow--live::before {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(160,240,0,0.08), transparent 30%);
+}
+
+/* =============================================================
+   SCORE BADGE — the big number
+   ============================================================= */
+
+.score-badge {
+  font-family: var(--font-chunk);
+  font-weight: 400;
+  color: var(--color-phosphor);
+  text-shadow:
+    0 0 6px var(--glow-phosphor),
+    0 0 18px rgba(160, 240, 0, 0.4),
+    0 0 2px rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Amber variant for pending / command scoring */
+.score-badge--amber {
+  color: var(--color-amber-bright);
+  text-shadow: 0 0 6px var(--glow-amber), 0 0 18px rgba(255, 184, 0, 0.35);
+}
+
+/* =============================================================
+   CHIPS / PILLS
+   ============================================================= */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;            /* was 9 — barely legible on mobile */
+  font-weight: 600;
+  letter-spacing: 0.2em;      /* was 0.24 */
+  text-transform: uppercase;
+  padding: 5px 9px;           /* a hair taller for touch legibility */
+  border-radius: 2px;
+  border: 1px solid var(--color-border-strong);
+  background: rgba(239, 231, 214, 0.04);
+  color: var(--color-text-primary);
+}
+.chip--team   { color: var(--color-cyber);    border-color: var(--color-border-cyber); background: var(--dim-cyber); }
+.chip--ok     { color: var(--color-phosphor); border-color: rgba(160,240,0,0.35);       background: var(--dim-phosphor); }
+.chip--warn   { color: var(--color-amber);    border-color: var(--color-border-amber);  background: var(--dim-amber); }
+.chip--danger { color: var(--color-rust);     border-color: rgba(210,64,30,0.45);       background: var(--dim-rust); }
+
+/* =============================================================
+   LEADERBOARD RANK PLATES
+   ============================================================= */
+
+.rank-plate {
+  width: 54px;
+  flex-shrink: 0;
+  text-align: center;
+  padding: 10px 0;
+  font-family: var(--font-chunk);
+  font-size: 1.9rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-tertiary);
+  background:
+    linear-gradient(180deg, #14151B 0%, #0B0C10 100%);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(239,231,214,0.05), inset 0 -2px 0 rgba(0,0,0,0.5);
+  position: relative;
+}
+.rank-plate::before {
+  content: "SLOT";
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--color-text-faint);
+  margin-bottom: 4px;
+}
+
+.rank-gold {
+  color: var(--color-amber-bright);
+  text-shadow: 0 0 10px var(--glow-amber), 0 0 2px rgba(255,255,255,0.3);
+  border-color: var(--color-border-amber);
+  background:
+    linear-gradient(180deg, rgba(255,184,0,0.18) 0%, rgba(255,184,0,0.02) 100%),
+    linear-gradient(180deg, #14151B 0%, #0B0C10 100%);
+}
+.rank-gold::before { color: var(--color-amber-deep); }
+
+.rank-silver { color: #D9D9D9; text-shadow: 0 0 6px rgba(255,255,255,0.22); }
+.rank-bronze { color: #E59757; text-shadow: 0 0 6px rgba(229,151,87,0.35); }
+
+/* =============================================================
+   BRIEFING TOGGLE — press-plate collapse control
+   ============================================================= */
+
+.briefing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-amber-bright);
+  padding: 6px 8px 6px 14px;
+  min-height: 40px;                         /* thumb-sized tap target */
+  background: linear-gradient(180deg, var(--color-steel-raised) 0%, var(--color-steel) 100%);
+  border: 1px solid var(--color-border-amber);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+button:hover > .briefing-toggle,
+.briefing-toggle:hover {
+  border-color: var(--color-amber);
+  background: linear-gradient(180deg, var(--color-steel-edge) 0%, var(--color-steel-raised) 100%);
+  color: var(--color-amber-bright);
+}
+
+button:active > .briefing-toggle {
+  transform: translateY(1px);
+}
+
+.briefing-toggle__label {
+  line-height: 1;
+}
+
+/* The chevron lives in its own square bezel — big, clear, unambiguous */
+.briefing-toggle__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(180deg, #14151B 0%, #0A0B0F 100%);
+  border: 1px solid var(--color-border-amber);
+  border-radius: 2px;
+  color: var(--color-amber-bright);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 2px 3px rgba(0, 0, 0, 0.6);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1), color 0.2s, box-shadow 0.2s;
+  filter: drop-shadow(0 0 4px var(--glow-amber));
+}
+
+/* Rotate the chevron when expanded (points UP → collapse) */
+.briefing-toggle[data-open="true"] .briefing-toggle__chevron {
+  transform: rotate(180deg);
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 184, 0, 0.18);
+}
+
+/* Hide label on very narrow screens; chevron stays big + centered */
+@media (max-width: 420px) {
+  .briefing-toggle { padding: 4px; }
+  .briefing-toggle__label { display: none; }
+  .briefing-toggle__chevron { width: 34px; height: 34px; }
+}
+
+/* =============================================================
+   ANIMATIONS
+   ============================================================= */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeIn 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+
+/* Staggered plate boot — apply .boot to a container, each child .boot-line */
+.boot > .boot-line { opacity: 0; transform: translateY(4px); animation: bootLine 0.36s ease-out forwards; }
+.boot > .boot-line:nth-child(1) { animation-delay: 0.00s; }
+.boot > .boot-line:nth-child(2) { animation-delay: 0.08s; }
+.boot > .boot-line:nth-child(3) { animation-delay: 0.16s; }
+.boot > .boot-line:nth-child(4) { animation-delay: 0.24s; }
+.boot > .boot-line:nth-child(5) { animation-delay: 0.32s; }
+.boot > .boot-line:nth-child(6) { animation-delay: 0.40s; }
+@keyframes bootLine { to { opacity: 1; transform: translateY(0); } }
+
+/* Flicker for LIVE labels */
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1;   text-shadow: 0 0 6px currentColor, 0 0 12px currentColor; }
+  20%, 24%, 55%                          { opacity: 0.5; text-shadow: none; }
+}
+.flicker { animation: flicker 4s infinite; }
+
+/* Marquee for ticker strip */
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Blink underscore / caret */
+@keyframes caretBlink { 50% { opacity: 0; } }
+.caret::after {
+  content: "▌";
+  margin-left: 2px;
+  color: var(--color-amber);
+  animation: caretBlink 1s steps(1) infinite;
+}
+
+/* Subtle scanline for focused plates */
+.crt::before {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    rgba(0, 0, 0, 0.28) 2px 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+/* =============================================================
+   UTILITY
+   ============================================================= */
+
+.divider-measure {
+  height: 1px;
+  background:
+    linear-gradient(90deg, transparent, var(--color-border-strong) 15%, var(--color-border-strong) 85%, transparent);
+  position: relative;
+  margin: 16px 0;
+}
+.divider-measure::before,
+.divider-measure::after {
+  content: "◼";
+  position: absolute;
+  top: -5px;
+  font-size: 8px;
+  color: var(--color-text-faint);
+}
+.divider-measure::before { left: 12%; }
+.divider-measure::after  { right: 12%; }
+
+.tag-square {
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: var(--color-amber);
+  box-shadow: 0 0 6px var(--glow-amber);
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+/* Focus ring for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-amber-bright);
+  outline-offset: 2px;
+}

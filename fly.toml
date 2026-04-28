@@ -6,7 +6,7 @@
 #  - min_machines_running = 1 so live judging never cold-starts mid-event
 #  - SESSION_SECRET + ADMIN_PIN must be set as Fly secrets (not in [env])
 
-app = "hackfw-judging"
+app = "hackfw-judging-fwtx"
 primary_region = "dfw"
 
 [build]

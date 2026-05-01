@@ -1,5 +1,6 @@
 import { listJudges, addJudge, deleteJudge } from "./repo";
 import { requireAdmin } from "../auth/session";
+import { broadcast } from "../realtime/ws";
 
 export const routes = {
   "/api/judges": {
@@ -22,6 +23,8 @@ export const routes = {
         }
         try {
           const id = await addJudge(name, email);
+          // Notify other admin tabs + bumps leaderboard total_judges denominator
+          broadcast("judges_updated");
           return Response.json({ id }, { status: 201 });
         } catch (e: any) {
           const msg = String(e?.message || e);
@@ -44,6 +47,7 @@ export const routes = {
         return Response.json({ error: "invalid id" }, { status: 400 });
       }
       await deleteJudge(id);
+      broadcast("judges_updated");
       return Response.json({ ok: true });
     },
   },

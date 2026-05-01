@@ -7,11 +7,16 @@ import { qk } from "../lib/queryClient";
  *
  * Hardened for live-judging conditions:
  *  - 25s ping keepalive — ALBs / nginx / Cloudflare drop idle WS at ~60s.
- *  - On reconnect, re-invalidates queries so observers catch up on any
- *    events that fired while the socket was down.
- *  - Cancels pending reconnect timers on unmount to prevent leaks.
+ *  - Server echoes "pong"; we force-close if too long elapses without one,
+ *    so a half-broken connection (one-way TCP stall) reconnects instead of
+ *    appearing alive but stale.
+ *  - Reconnect backoff has random jitter so a server restart doesn't cause
+ *    every client to reconnect in lockstep.
+ *  - Always resync on (re)connect so we catch up on events that fired in
+ *    the gap between initial query fetch and WS open.
  */
 const PING_INTERVAL_MS = 25_000;
+const PONG_TIMEOUT_MS = 60_000;
 const MAX_RECONNECT_DELAY_MS = 8_000;
 
 export function useRealtimeSync() {
@@ -25,6 +30,7 @@ export function useRealtimeSync() {
     let retry = 0;
     let reconnectTimer: number | null = null;
     let pingTimer: number | null = null;
+    let lastPongAt = 0;
 
     const stopPing = () => {
       if (pingTimer !== null) {
@@ -54,18 +60,28 @@ export function useRealtimeSync() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        const wasReconnect = retry > 0;
         retry = 0;
-        // Catch up on anything we missed while disconnected
-        if (wasReconnect) resyncAll();
-        // Keepalive — proxies drop idle WS after ~60s
+        lastPongAt = Date.now();
+        // Resync unconditionally — closes the gap between initial query
+        // fetches and WS open, where a broadcast could be missed.
+        resyncAll();
         stopPing();
         pingTimer = window.setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) ws.send("ping");
+          if (ws.readyState !== WebSocket.OPEN) return;
+          // If server stopped echoing pongs, the link is one-way dead.
+          if (lastPongAt && Date.now() - lastPongAt > PONG_TIMEOUT_MS) {
+            try { ws.close(); } catch {}
+            return;
+          }
+          try { ws.send("ping"); } catch {}
         }, PING_INTERVAL_MS);
       };
 
       ws.onmessage = (e) => {
+        if (e.data === "pong") {
+          lastPongAt = Date.now();
+          return;
+        }
         try {
           const { type } = JSON.parse(e.data);
           switch (type) {
@@ -79,9 +95,13 @@ export function useRealtimeSync() {
               qc.invalidateQueries({ queryKey: qk.projects });
               qc.invalidateQueries({ queryKey: qk.leaderboard });
               break;
+            case "judges_updated":
+              qc.invalidateQueries({ queryKey: qk.judges });
+              qc.invalidateQueries({ queryKey: qk.leaderboard });
+              break;
           }
         } catch {
-          // ignore parse errors (incl. server pong/keepalive)
+          // ignore parse errors (incl. server keepalive)
         }
       };
 
@@ -89,7 +109,10 @@ export function useRealtimeSync() {
         stopPing();
         if (closedByUnmount.current) return;
         retry++;
-        const delay = Math.min(MAX_RECONNECT_DELAY_MS, 500 * 2 ** retry);
+        // Exponential backoff with jitter — random factor in [0.5, 1.0]
+        // so a server restart doesn't trigger a thundering-herd reconnect.
+        const base = Math.min(MAX_RECONNECT_DELAY_MS, 500 * 2 ** retry);
+        const delay = base * (0.5 + Math.random() * 0.5);
         reconnectTimer = window.setTimeout(connect, delay);
       };
     };

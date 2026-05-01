@@ -44,5 +44,18 @@ export const sessionStore = {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
     localStorage.removeItem(JUDGE_KEY);
+    // Don't leave per-judge draft notes from the previous session on disk —
+    // they're scoped to the previous judgeId but a different login on the
+    // same browser shouldn't carry that history.
+    try {
+      const stale: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("hackfw_draft_notes_")) stale.push(k);
+      }
+      for (const k of stale) localStorage.removeItem(k);
+    } catch {
+      // localStorage may be disabled — best effort
+    }
   },
 };

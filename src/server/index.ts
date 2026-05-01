@@ -1,5 +1,5 @@
 import { bootstrapDb, syncNow, DB_PATH } from "../db";
-import { onOpen, onClose } from "../realtime/ws";
+import { onOpen, onMessage, onClose } from "../realtime/ws";
 
 import { routes as authRoutes } from "../auth/routes";
 import { routes as judgeRoutes } from "../judges/routes";
@@ -124,7 +124,7 @@ Bun.serve({
 
   websocket: {
     open(ws) { onOpen(ws); },
-    message() { /* keepalive only */ },
+    message(ws, msg) { onMessage(ws, msg); },
     close(ws) { onClose(ws); },
   },
 });

@@ -34,6 +34,7 @@ export async function migrate() {
     reindustrialization_impact INTEGER NOT NULL CHECK(reindustrialization_impact BETWEEN 1 AND 10),
     notes TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
     UNIQUE(project_id, judge_id)
   )`);
 
@@ -63,6 +64,7 @@ export async function migrate() {
       reindustrialization_impact INTEGER NOT NULL CHECK(reindustrialization_impact BETWEEN 1 AND 10),
       notes TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
       UNIQUE(project_id, judge_id)
     )`);
   }
@@ -71,14 +73,25 @@ export async function migrate() {
   await addColumnIfMissing("projects", "readme_url", "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissing("projects", "devpost_url", "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissing("projects", "presenting", "INTEGER NOT NULL DEFAULT 0");
+
+  // scores.updated_at — separate from created_at so we don't lose the
+  // first-seen timestamp when a judge edits their score. Nullable (SQLite
+  // doesn't allow non-constant DEFAULT in ALTER TABLE) — backfilled from
+  // created_at for existing rows; new rows set it explicitly on insert.
+  const addedUpdatedAt = await addColumnIfMissing("scores", "updated_at", "TEXT");
+  if (addedUpdatedAt) {
+    await db.execute("UPDATE scores SET updated_at = created_at WHERE updated_at IS NULL");
+  }
 }
 
-async function addColumnIfMissing(table: string, column: string, def: string) {
+async function addColumnIfMissing(table: string, column: string, def: string): Promise<boolean> {
   const info = await db.execute({ sql: `PRAGMA table_info(${table})` });
   const exists = info.rows.some((r: any) => r.name === column);
   if (!exists) {
     await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+    return true;
   }
+  return false;
 }
 
 export async function seed() {

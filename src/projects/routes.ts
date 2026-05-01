@@ -162,7 +162,9 @@ export const routes = {
         for (const it of items) {
           const name = (it.name || "").trim();
           const description = (it.description || "").trim();
-          const team = (it.team || "").trim();
+          const team = Array.isArray(it.team)
+            ? it.team.map((s) => String(s).trim()).filter(Boolean).join(", ")
+            : (it.team || "").trim();
           if (!name || !description || !team) continue;
           await addProject({
             name,

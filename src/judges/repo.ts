@@ -21,6 +21,11 @@ export async function deleteJudge(id: number): Promise<void> {
   });
 }
 
+export async function countJudges(): Promise<number> {
+  const r = await db.execute("SELECT COUNT(*) AS c FROM judges");
+  return Number((r.rows[0] as any).c);
+}
+
 export async function authenticateJudge(email: string): Promise<Judge | null> {
   const r = await db.execute({
     sql: "SELECT * FROM judges WHERE email = ? COLLATE NOCASE LIMIT 1",

@@ -30,7 +30,14 @@ export const ProjectCard = forwardRef<
   const scoreQ = useJudgeScore(project.id, judge.id, expanded);
   const upsert = useUpsertScore();
 
-  // On expand: hydrate from server, then overlay any local draft notes
+  // On expand: hydrate from server, then overlay any local draft notes.
+  //
+  // Note: `criteria` is intentionally NOT in the dep array. If we re-ran
+  // this effect when admin tweaked a criterion weight, we'd clobber the
+  // judge's in-progress slider edits with the last server snapshot.
+  // The criteria list's *keys* only change when admin adds/removes a
+  // criterion — not on weight changes — and missing keys fall back to 5
+  // in the slider render anyway.
   useEffect(() => {
     if (!expanded) return;
     if (scoreQ.isSuccess) {
@@ -55,7 +62,8 @@ export const ProjectCard = forwardRef<
       } catch {}
       setScore(next);
     }
-  }, [expanded, scoreQ.isSuccess, scoreQ.data, criteria, project.id, judge.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, scoreQ.isSuccess, scoreQ.data, project.id, judge.id]);
 
   const weightedTotal = (() => {
     const totalW = criteria.reduce((s, c) => s + c.weight, 0);

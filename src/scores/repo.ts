@@ -21,6 +21,9 @@ export async function upsertScore(fields: {
   notes?: string;
 }): Promise<void> {
   const notes = fields.notes ?? "";
+  // INSERT lets the column DEFAULT (datetime('now')) populate created_at +
+  // updated_at. UPDATE on conflict only refreshes updated_at — created_at
+  // preserves the first-seen timestamp for audit purposes.
   await db.execute({
     sql: `INSERT INTO scores (
             project_id, judge_id,
@@ -34,7 +37,7 @@ export async function upsertScore(fields: {
             demo_uniqueness = excluded.demo_uniqueness,
             reindustrialization_impact = excluded.reindustrialization_impact,
             notes = excluded.notes,
-            created_at = datetime('now')`,
+            updated_at = datetime('now')`,
     args: [
       fields.project_id,
       fields.judge_id,

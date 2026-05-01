@@ -24,6 +24,7 @@ function makeScore(
     reindustrialization_impact: values.reindustrialization_impact ?? 5,
     notes: extras.notes ?? "",
     created_at: extras.created_at ?? "2026-04-21T00:00:00Z",
+    updated_at: extras.updated_at ?? null,
   };
 }
 

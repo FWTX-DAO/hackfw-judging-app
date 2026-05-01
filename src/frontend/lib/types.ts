@@ -41,6 +41,8 @@ export type LeaderboardEntry = Project & {
   avg_demo_uniqueness: number;
   avg_reindustrialization_impact: number;
   judge_count: number;
+  /** Total authorized judges on the panel — same value across all rows. */
+  total_judges: number;
 };
 
 export type Branding = {

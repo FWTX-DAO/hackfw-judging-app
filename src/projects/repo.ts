@@ -77,9 +77,10 @@ export async function deleteProject(id: number): Promise<void> {
 }
 
 export async function setPresenting(id: number): Promise<void> {
-  await db.execute("UPDATE projects SET presenting = 0 WHERE presenting = 1");
+  // Atomic single-statement swap so concurrent admin actions can't observe
+  // a window with zero or two presenters.
   await db.execute({
-    sql: "UPDATE projects SET presenting = 1 WHERE id = ?",
+    sql: "UPDATE projects SET presenting = CASE WHEN id = ? THEN 1 ELSE 0 END",
     args: [id],
   });
 }

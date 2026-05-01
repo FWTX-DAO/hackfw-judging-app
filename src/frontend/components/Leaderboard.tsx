@@ -3,7 +3,7 @@ import type { CriteriaWeight } from "../lib/types";
 import { useLeaderboard } from "../hooks/useQueries";
 
 export function Leaderboard({ criteria }: { criteria: CriteriaWeight[] }) {
-  const { data } = useLeaderboard();
+  const { data, isPending, isError, error, refetch } = useLeaderboard();
   const entries = data ?? [];
 
   const rankClass = (i: number, hasScores: boolean) => {
@@ -24,7 +24,11 @@ export function Leaderboard({ criteria }: { criteria: CriteriaWeight[] }) {
       .toUpperCase();
   };
 
-  const totalJudges = entries.reduce((s, e) => Math.max(s, e.judge_count), 0);
+  // Server reports the panel size on every row; fall back to "max judges
+  // who scored any one project" only if the field is absent (older payload).
+  const totalJudges =
+    entries[0]?.total_judges ??
+    entries.reduce((s, e) => Math.max(s, e.judge_count), 0);
 
   return (
     <div className="animate-in">
@@ -49,7 +53,24 @@ export function Leaderboard({ criteria }: { criteria: CriteriaWeight[] }) {
 
       <div className="hazard-stripes" style={{ height: 3, marginBottom: 16, borderRadius: 1, opacity: 0.55 }} />
 
-      {entries.length === 0 && (
+      {isPending && (
+        <div className="plate plate--ruled plate--riveted text-center" style={{ padding: "48px 20px" }}>
+          <p className="serial" style={{ fontSize: 11 }}>// Loading standings…</p>
+        </div>
+      )}
+
+      {!isPending && isError && (
+        <div className="plate plate--ruled plate--riveted text-center" style={{ padding: "48px 20px" }}>
+          <p className="serial" style={{ fontSize: 11, color: "var(--color-rust)" }}>
+            // Failed to load: {(error as Error)?.message || "unknown error"}
+          </p>
+          <button onClick={() => refetch()} className="btn-secondary" style={{ marginTop: 12 }}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!isPending && !isError && entries.length === 0 && (
         <div className="plate plate--ruled plate--riveted text-center" style={{ padding: "48px 20px" }}>
           <p className="serial" style={{ fontSize: 11 }}>// No submissions loaded yet</p>
         </div>
@@ -195,7 +216,9 @@ export function Leaderboard({ criteria }: { criteria: CriteriaWeight[] }) {
                   {hasScores ? entry.avg_weighted.toFixed(1) : "—.—"}
                 </div>
                 <span className="serial" style={{ fontSize: 9, marginTop: 4 }}>
-                  {entry.judge_count} / {totalJudges || 6} Judges
+                  {totalJudges > 0
+                    ? `${entry.judge_count} / ${totalJudges} Judges`
+                    : `${entry.judge_count} Judges`}
                 </span>
               </div>
             </div>

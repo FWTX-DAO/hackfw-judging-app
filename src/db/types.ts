@@ -36,6 +36,7 @@ export type Score = {
   reindustrialization_impact: number;
   notes: string;
   created_at: string;
+  updated_at: string | null;
 };
 
 export type CriteriaWeight = {
@@ -53,6 +54,8 @@ export type LeaderboardEntry = Project & {
   avg_reindustrialization_impact: number;
   avg_weighted: number;
   judge_count: number;
+  /** Total authorized judges on the panel — same value across all rows. */
+  total_judges: number;
   requirements_met: boolean;
   missing_requirements: string[];
 };

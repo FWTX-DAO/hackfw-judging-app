@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   useAddJudge,
   useAddProject,
@@ -39,6 +39,21 @@ export function AdminPanel() {
   const [pReadme, setPReadme] = useState("");
   const [pVideo, setPVideo] = useState("");
   const [pDevpost, setPDevpost] = useState("");
+
+  // Local override for criteria sliders so drags update visually without
+  // firing one mutation per drag tick. The mutation is debounced — we only
+  // commit (and broadcast) after the admin stops moving the slider.
+  const [localWeights, setLocalWeights] = useState<Record<string, number>>({});
+  const weightTimers = useRef<Record<string, number>>({});
+  const onWeightChange = (key: string, weight: number) => {
+    setLocalWeights((prev) => ({ ...prev, [key]: weight }));
+    const t = weightTimers.current[key];
+    if (t) window.clearTimeout(t);
+    weightTimers.current[key] = window.setTimeout(() => {
+      updateWeight.mutate({ key, weight });
+      delete weightTimers.current[key];
+    }, 250);
+  };
 
   const submitJudge = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,21 +212,24 @@ export function AdminPanel() {
       {/* ─── Criteria weights ─── */}
       <Section title="Criteria Weights">
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {criteria.map((c) => (
-            <div key={c.key} className="flex items-center flex-wrap" style={{ gap: 10 }}>
-              <label className="serial" style={{ width: 170, flexShrink: 0, fontSize: 10 }} title={c.description}>
-                {c.label}
-              </label>
-              <input
-                type="range" min={1} max={100} value={c.weight}
-                onChange={(e) => updateWeight.mutate({ key: c.key, weight: Number(e.target.value) })}
-                style={{ flex: 1, minWidth: 140 }}
-              />
-              <span className="readout-amber" style={{ width: 56, textAlign: "right", fontSize: 14 }}>
-                {c.weight}%
-              </span>
-            </div>
-          ))}
+          {criteria.map((c) => {
+            const displayed = localWeights[c.key] ?? c.weight;
+            return (
+              <div key={c.key} className="flex items-center flex-wrap" style={{ gap: 10 }}>
+                <label className="serial" style={{ width: 170, flexShrink: 0, fontSize: 10 }} title={c.description}>
+                  {c.label}
+                </label>
+                <input
+                  type="range" min={1} max={100} value={displayed}
+                  onChange={(e) => onWeightChange(c.key, Number(e.target.value))}
+                  style={{ flex: 1, minWidth: 140 }}
+                />
+                <span className="readout-amber" style={{ width: 56, textAlign: "right", fontSize: 14 }}>
+                  {displayed}%
+                </span>
+              </div>
+            );
+          })}
         </div>
         <p className="serial mt-3">// Weights are auto-normalized; need not sum to 100</p>
       </Section>

@@ -15,6 +15,9 @@ export function JudgePage() {
   const criteriaQ = useCriteria();
   const projects = projectsQ.data ?? [];
   const criteria = criteriaQ.data ?? [];
+  const isLoading = projectsQ.isPending || criteriaQ.isPending;
+  const isError = projectsQ.isError || criteriaQ.isError;
+  const errorMsg = (projectsQ.error || criteriaQ.error) as Error | undefined;
 
   const cardRefs = useRef<Map<number, ProjectCardHandle | null>>(new Map());
 
@@ -36,7 +39,17 @@ export function JudgePage() {
     <div className="flex flex-col gap-3">
       {presenting && <PresentingBanner project={presenting} onGradeNow={gradeNow} />}
       <JudgingBriefing />
-      {projects.length === 0 && (
+      {isLoading && (
+        <p className="text-center py-12" style={{ color: "var(--color-text-tertiary)" }}>
+          // Loading submissions…
+        </p>
+      )}
+      {!isLoading && isError && (
+        <p className="text-center py-12" style={{ color: "var(--color-rust)" }}>
+          // Failed to load: {errorMsg?.message || "unknown error"}
+        </p>
+      )}
+      {!isLoading && !isError && projects.length === 0 && (
         <p className="text-center py-12" style={{ color: "var(--color-text-tertiary)" }}>
           // No submissions to score yet
         </p>

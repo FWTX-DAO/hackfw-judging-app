@@ -313,10 +313,51 @@ describe("leaderboard repo", () => {
     }
   );
 
+  test.if(!!leaderboardRepo && typeof leaderboardRepo?.getLeaderboard === "function")(
+    "tied avg_weighted breaks by judge_count desc, then id asc",
+    async () => {
+      // Two projects, both scored by the same set of judges with identical
+      // values → identical avg_weighted. Tiebreaker should be deterministic.
+      const judges = await judgesRepo.listJudges();
+      const [j1, j2] = judges;
+
+      const pA = await projectsRepo.addProject({ name: "TieA", description: "d", team: "t" });
+      const pB = await projectsRepo.addProject({ name: "TieB", description: "d", team: "t" });
+
+      const sameScore = {
+        technical_decisions: 5,
+        product_viability: 5,
+        venture_scalability: 5,
+        demo_uniqueness: 5,
+        reindustrialization_impact: 5,
+      };
+      await scoresRepo.upsertScore({ project_id: pA, judge_id: j1!.id, ...sameScore });
+      await scoresRepo.upsertScore({ project_id: pA, judge_id: j2!.id, ...sameScore });
+      await scoresRepo.upsertScore({ project_id: pB, judge_id: j1!.id, ...sameScore });
+      // pB only has 1 judge → should rank below pA in the tiebreak
+
+      const lb = await leaderboardRepo.getLeaderboard();
+      const idxA = lb.findIndex((e: any) => e.id === pA);
+      const idxB = lb.findIndex((e: any) => e.id === pB);
+      expect(idxA).toBeGreaterThanOrEqual(0);
+      expect(idxB).toBeGreaterThanOrEqual(0);
+      expect(idxA).toBeLessThan(idxB);
+    }
+  );
+
+  test.if(!!leaderboardRepo && typeof leaderboardRepo?.getLeaderboard === "function")(
+    "every entry exposes total_judges = panel size",
+    async () => {
+      const judges = await judgesRepo.listJudges();
+      const lb = await leaderboardRepo.getLeaderboard();
+      for (const entry of lb) {
+        expect(entry.total_judges).toBe(judges.length);
+      }
+    }
+  );
+
   if (!leaderboardRepo || typeof leaderboardRepo?.getLeaderboard !== "function") {
     test("leaderboard repo not yet provided (skipped)", () => {
-      // Soft-skip: a separate backend agent owns src/leaderboard/repo.ts.
-      // This placeholder keeps the reporting clear.
       expect(true).toBe(true);
     });
   }

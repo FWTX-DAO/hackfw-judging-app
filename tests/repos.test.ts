@@ -188,6 +188,50 @@ describe("scores repo", () => {
     expect(rowsForJudge.length).toBe(1);
   });
 
+  test("upsertScore preserves created_at across updates; bumps updated_at", async () => {
+    const projectId = await projectsRepo.addProject({
+      name: "Timestamps",
+      description: "d",
+      team: "t",
+    });
+    const judges = await judgesRepo.listJudges();
+    const judgeId = judges[0]!.id;
+
+    await scoresRepo.upsertScore({
+      project_id: projectId,
+      judge_id: judgeId,
+      technical_decisions: 5,
+      product_viability: 5,
+      venture_scalability: 5,
+      demo_uniqueness: 5,
+      reindustrialization_impact: 5,
+      notes: "v1",
+    });
+    const first = await scoresRepo.getScore(projectId, judgeId);
+    expect(first).not.toBeNull();
+    const firstCreated = first!.created_at;
+    expect(firstCreated).toBeTruthy();
+
+    // Sleep enough for datetime('now') (second resolution) to advance
+    await new Promise((r) => setTimeout(r, 1100));
+
+    await scoresRepo.upsertScore({
+      project_id: projectId,
+      judge_id: judgeId,
+      technical_decisions: 9,
+      product_viability: 9,
+      venture_scalability: 9,
+      demo_uniqueness: 9,
+      reindustrialization_impact: 9,
+      notes: "v2",
+    });
+    const second = await scoresRepo.getScore(projectId, judgeId);
+    expect(second!.created_at).toBe(firstCreated);
+    // updated_at should be later (or at least not the same as v1's, which
+    // was set to the same instant as created_at on insert)
+    expect(second!.updated_at).not.toBe(firstCreated);
+  });
+
   test("listScoresByProjectDetailed includes judge_name + judge_email", async () => {
     const projectId = await projectsRepo.addProject({
       name: "Detailed",

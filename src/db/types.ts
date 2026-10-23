@@ -1,4 +1,6 @@
-export type Project = {
+import type { SubmissionDetails } from "../shared/submissions";
+
+export type Project = SubmissionDetails & {
   id: number;
   name: string;
   description: string;

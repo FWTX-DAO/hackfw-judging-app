@@ -92,33 +92,26 @@ describe("projects repo", () => {
     expect(match!.name).toBe("Test Alpha");
   });
 
-  test("project without github/video has requirements_met=false; true when set", async () => {
+  test("evidence needs explicit verification and morning check-in", async () => {
     const { checkRequirements } = await import("../src/scores/scoring");
-    const id = await projectsRepo.addProject({
-      name: "Req Test",
-      description: "d",
-      team: "t",
-    });
-    let p = await projectsRepo.getProject(id);
-    let req = checkRequirements({
-      github_url: p!.github_url,
-      readme_url: p!.readme_url,
-      video_url: p!.video_url,
-    });
-    expect(req.met).toBe(false);
-
-    await projectsRepo.updateProject(id, {
-      github_url: "https://github.com/x/y",
-      video_url: "https://youtu.be/abc",
-    });
-    p = await projectsRepo.getProject(id);
-    req = checkRequirements({
-      github_url: p!.github_url,
-      readme_url: p!.readme_url,
-      video_url: p!.video_url,
-    });
-    expect(req.met).toBe(true);
-    expect(req.missing).toEqual([]);
+    const id = await projectsRepo.addProject({ name: "Requirements", description: "d", team: "t",
+      problem_track: "AI for Manufacturing", team_members: [{ name: "Avery" }], github_url: "https://github.com/x/y", video_url: "https://youtu.be/abc" });
+    expect(checkRequirements((await projectsRepo.getProject(id))!).met).toBe(false);
+    await projectsRepo.updateProject(id, { track_verified: 1, github_verified: 1, video_verified: 1, talent_verified: 1, attendance_verified: 1 });
+    const verified = (await projectsRepo.getProject(id))!;
+    expect(checkRequirements(verified).met).toBe(true);
+    expect(verified.checked_in_at).toBeTruthy();
+    await projectsRepo.setPresenting(id);
+    await projectsRepo.updateProject(id, { github_url: "https://github.com/x/revised" });
+    const revised = (await projectsRepo.getProject(id))!;
+    expect(revised.github_verified).toBe(0);
+    expect(revised.presenting).toBe(0);
+    expect(revised.attendance_verified).toBe(1);
+    await projectsRepo.updateProject(id, { team_members: [{ name: "Avery", email: "avery@example.test" }, { name: "Jordan" }] });
+    const changedTeam = (await projectsRepo.getProject(id))!;
+    expect(changedTeam.talent_verified).toBe(0);
+    expect(changedTeam.attendance_verified).toBe(0);
+    expect(changedTeam.checked_in_at).toBeNull();
   });
 
   test("setPresenting only marks the latest as presenting", async () => {
@@ -361,4 +354,101 @@ describe("leaderboard repo", () => {
       expect(true).toBe(true);
     });
   }
+});
+
+describe("submission HTTP workflow", () => {
+  test("bulk import preserves participant objects, starts unverified and rejects invalid batches before writes", async () => {
+    const { routes } = await import("../src/projects/routes");
+    const { issueToken } = await import("../src/auth/session");
+    const token = issueToken({ type: "admin" });
+    const request = (items: unknown[]) => new Request("http://test.local/api/projects/bulk", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ items }),
+    });
+    const item = { name: "Bulk array", team: "Bulk Team", description: "Working system", problem_track: "Open Forum",
+      team_members: [{ name: "Avery", email: "avery@example.test" }, { name: "Jordan" }], attendance_verified: 1 };
+    const before = (await projectsRepo.listProjects()).length;
+    const invalid = await routes["/api/projects/bulk"].POST(request([item, { ...item, team_members: [{}] }]));
+    expect(invalid.status).toBe(400);
+    expect((await invalid.json()).error).toContain("Submission 2");
+    expect((await projectsRepo.listProjects()).length).toBe(before);
+    const imported = await routes["/api/projects/bulk"].POST(request([item, { ...item, name: "Bulk newline", team_members: "Legacy One\nLegacy Two" }]));
+    expect(imported.status).toBe(200);
+    expect((await imported.json()).created).toBe(2);
+    const rows = await projectsRepo.listProjects();
+    const canonical = rows.find((row) => row.name === "Bulk array")!;
+    expect(canonical.team_members).toEqual(item.team_members);
+    expect(canonical.attendance_verified).toBe(0);
+    expect(canonical.checked_in_at).toBeNull();
+    expect(rows.find((row) => row.name === "Bulk newline")!.team_members).toEqual([{ name: "Legacy One" }, { name: "Legacy Two" }]);
+  });
+
+  test("admin CRUD, five checks, check-in, judging gates and revocation", async () => {
+    const { routes: projectRoutes } = await import("../src/projects/routes");
+    const { routes: scoreRoutes } = await import("../src/scores/routes");
+    const { issueToken } = await import("../src/auth/session");
+    const judge = (await judgesRepo.listJudges())[0]!;
+    const admin = issueToken({ type: "admin" });
+    const judgeToken = issueToken({ type: "judge", judgeId: judge.id, email: judge.email });
+    const request = (method: string, token: string, body?: unknown, id?: number) => Object.assign(new Request("http://test.local/api/projects", {
+      method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }), { params: { id: String(id) } });
+    const submission = { name: "HTTP workflow", team: "Team HTTP", description: "Working demo",
+      problem_track: "AI for Manufacturing", team_members: [{ name: "Avery", email: "avery@example.test" }, { name: "Jordan" }],
+      github_url: "https://github.com/example/demo", video_url: "https://example.test/demo" };
+    expect((await projectRoutes["/api/projects"].POST(request("POST", judgeToken, submission))).status).toBe(401);
+    const created = await projectRoutes["/api/projects"].POST(request("POST", admin, { ...submission, github_verified: 1 }));
+    expect(created.status).toBe(201);
+    const { id } = await created.json() as { id: number };
+    expect((await projectsRepo.getProject(id))!.github_verified).toBe(0);
+    expect((await projectRoutes["/api/projects/:id"].PUT(request("PUT", judgeToken, { attendance_verified: 1 }, id))).status).toBe(401);
+    expect((await projectRoutes["/api/projects/:id/present"].POST(request("POST", admin, undefined, id))).status).toBe(409);
+    const grade = { project_id: id, judge_id: judge.id, ...Object.fromEntries(CRITERIA_KEYS.map((key) => [key, 8])), notes: "Verified demo" };
+    expect((await scoreRoutes["/api/scores"].POST(request("POST", judgeToken, grade))).status).toBe(409);
+    const verified = await projectRoutes["/api/projects/:id"].PUT(request("PUT", admin, {
+      track_verified: 1, github_verified: 1, video_verified: 1, talent_verified: 1, attendance_verified: 1,
+    }, id));
+    expect(verified.status).toBe(200);
+    const checkedIn = (await projectsRepo.getProject(id))!;
+    expect(checkedIn.checked_in_at).toBeTruthy();
+    const adminProject = await projectRoutes["/api/projects/:id"].GET(request("GET", admin, undefined, id)).then((res) => res.json());
+    const publicProject = await projectRoutes["/api/projects/:id"].GET(request("GET", "", undefined, id)).then((res) => res.json());
+    const publicList = await projectRoutes["/api/projects"].GET(request("GET", "")).then((res) => res.json());
+    const publicBoard = await leaderboardRepo.getLeaderboard();
+    expect(adminProject.team_members[0].email).toBe("avery@example.test");
+    expect(publicProject.team_members[0]).toEqual({ name: "Avery" });
+    expect(publicList.find((row: any) => row.id === id).team_members[0]).toEqual({ name: "Avery" });
+    expect(publicBoard.find((row: any) => row.id === id).team_members[0]).toEqual({ name: "Avery" });
+    const { migrate } = await import("../src/db/schema");
+    await migrate();
+    expect((await projectsRepo.getProject(id))!.checked_in_at).toBe(checkedIn.checked_in_at);
+    expect((await projectRoutes["/api/projects/:id/present"].POST(request("POST", admin, undefined, id))).status).toBe(200);
+    expect((await scoreRoutes["/api/scores"].POST(request("POST", judgeToken, grade))).status).toBe(200);
+    await projectRoutes["/api/projects/:id"].PUT(request("PUT", admin, { name: "Edited submission", team: "Edited team" }, id));
+    const edited = (await projectsRepo.getProject(id))!;
+    expect(edited.name).toBe("Edited submission");
+    expect(edited.team).toBe("Edited team");
+    expect(edited.talent_verified).toBe(0);
+    expect(edited.attendance_verified).toBe(0);
+    expect(edited.presenting).toBe(0);
+    expect((await scoreRoutes["/api/scores"].POST(request("POST", judgeToken, grade))).status).toBe(409);
+    expect((await scoresRepo.getScore(id, judge.id))!.technical_decisions).toBe(8);
+    expect((await projectRoutes["/api/projects/:id"].DELETE(request("DELETE", admin, undefined, id))).status).toBe(200);
+    expect(await projectsRepo.getProject(id)).toBeNull();
+    expect(await scoresRepo.getScore(id, judge.id)).toBeNull();
+    expect((await projectRoutes["/api/projects/:id"].PUT(request("PUT", admin, { name: "missing" }, id))).status).toBe(404);
+    expect((await projectRoutes["/api/projects/:id/present"].POST(request("POST", admin, undefined, id))).status).toBe(404);
+  });
+
+  test("invalid verification or evidence edits fail without partial writes", async () => {
+    const { parseProjectInput } = await import("../src/projects/validation");
+    expect(() => parseProjectInput({ track_verified: "false" }, true)).toThrow();
+    expect(() => parseProjectInput({ problem_track: "Bogus" }, true)).toThrow();
+    expect(() => parseProjectInput({ video_url: "javascript:alert(1)" }, true)).toThrow();
+    expect(() => parseProjectInput({ team: "" }, true)).toThrow();
+    const id = await projectsRepo.addProject({ name: "Atomic validation", team: "Original", description: "d" });
+    await expect(projectsRepo.updateProject(id, { name: "Should roll back", github_verified: 1 })).rejects.toThrow("GitHub");
+    expect((await projectsRepo.getProject(id))!.name).toBe("Atomic validation");
+    await expect(projectsRepo.updateProject(id, { attendance_verified: 1 })).rejects.toThrow("roster");
+  });
 });

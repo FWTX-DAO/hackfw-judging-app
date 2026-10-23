@@ -1,6 +1,8 @@
 // Frontend-local type aliases. Keep in sync with backend (src/db/types.ts).
 
-export type Project = {
+import type { SubmissionDetails } from "../../shared/submissions";
+
+export type Project = SubmissionDetails & {
   id: number;
   name: string;
   description: string;
@@ -55,15 +57,15 @@ export type Branding = {
 
 export type AppConfig = {
   branding: Branding;
-  requirements: { github: boolean; readme: boolean; video: boolean };
+  requirements: { problem_track: boolean; github: boolean; video: boolean; talent_registration: boolean; in_person_demo_day: boolean };
 };
 
 export const DEFAULT_BRANDING: Branding = {
   name: "HackFW",
-  title_line: "Scaling Fort Worth Builders",
-  tagline: "Convergent Technology // Accelerating Reindustrialization",
-  footer: "FWTX DAO // Convergent Technology // 2026",
-  palette: { primary: "#F59E0B", primary_bright: "#FCD34D", accent: "#00E5A0" },
+  title_line: "MADE Challenge // Demo Day",
+  tagline: "Rebuilding System Density",
+  footer: "Fort Worth DAO + MADE // 2026",
+  palette: { primary: "#E2673D", primary_bright: "#F48A5F", accent: "#E7ECE5" },
 };
 
 export function buildDefaultScore(criteria: CriteriaWeight[]): ScoreData {

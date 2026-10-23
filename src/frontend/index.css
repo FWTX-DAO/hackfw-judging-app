@@ -1,58 +1,59 @@
 @import "tailwindcss";
 
 /* =============================================================
-   HACKFW // REINDUSTRIALIZATION TERMINAL
+   HACKFW // MADE CHALLENGE DEMO DAY
    Industrial-Brutalist / Terminal aesthetic.
    Stenciled steel plates, hazard stripes, CRT phosphor glow,
-   oscilloscope cyan for data, rust-amber for command.
+   HackFW rust, charcoal, and off-white; green for live status.
    ============================================================= */
 
 @theme {
   /* ——— Oil / steel substrate ——— */
-  --color-void:         #08080A;   /* deep oil black */
-  --color-ink:          #0D0E11;   /* panel back */
-  --color-steel:        #15161B;   /* cold rolled steel */
-  --color-steel-raised: #1C1E25;   /* raised plate */
-  --color-steel-edge:   #23252E;   /* edge highlight */
+  --color-void:         #0D0E0D;   /* HackFW charcoal */
+  --color-ink:          #111210;   /* panel back */
+  --color-steel:        #151614;   /* cold rolled steel */
+  --color-steel-raised: #20211F;   /* raised plate */
+  --color-steel-edge:   #2A2C29;   /* edge highlight */
   --color-rivet:        #0A0A0C;   /* rivet shadow */
 
   /* ——— Signal palette ——— */
-  --color-amber:        #FFB800;   /* hazard amber (command) */
-  --color-amber-bright: #FFD23F;   /* high-beam */
-  --color-amber-deep:   #A67200;   /* recessed amber */
+  --color-amber:        #E2673D;   /* HackFW rust (command) */
+  --color-amber-bright: #F48A5F;   /* warm highlight */
+  --color-amber-deep:   #B84E2B;   /* recessed rust */
   --color-phosphor:     #A0F000;   /* CRT phosphor — LIVE */
-  --color-cyber:        #48D1FF;   /* blueprint cyan — data */
-  --color-cyber-deep:   #1B84AE;
+  --color-cyber:        #E7ECE5;   /* HackFW off-white — data */
+  --color-cyber-deep:   #AEB5AE;
   --color-rust:         #D2401E;   /* alarm / danger */
-  --color-bone:         #EFE7D6;   /* stencil paint */
-  --color-bone-dim:     #C9C0B0;
+  --color-bone:         #EDF0EB;   /* stencil paint */
+  --color-bone-dim:     #C7CEC6;
 
   /* ——— Ink — bumped contrast for accessibility (AA+ on void bg) ——— */
-  --color-text-primary:   #F5EEDF;  /* ~14.6:1 */
-  --color-text-secondary: #D6CFC2;  /* ~12.6:1 — body/meta */
-  --color-text-tertiary:  #A49B8E;  /* ~7.8:1  — labels/captions (was 3.5:1, too low) */
+  --color-text-primary:   #EDF0EB;
+  --color-text-secondary: #C7CEC6;
+  --color-text-tertiary:  #AEB5AE;
   --color-text-faint:     #6B6355;  /* ruler / inert structural only */
 
   /* ——— Glow / dim accents (rgba) ——— */
-  --glow-amber:    rgba(255, 184, 0, 0.35);
+  --glow-amber:    color-mix(in srgb, var(--color-amber) 35%, transparent);
   --glow-phosphor: rgba(160, 240, 0, 0.45);
-  --glow-cyber:    rgba(72, 209, 255, 0.40);
+  --glow-cyber:    color-mix(in srgb, var(--color-cyber) 20%, transparent);
   --glow-rust:     rgba(210, 64, 30, 0.45);
-  --dim-amber:     rgba(255, 184, 0, 0.08);
+  --dim-amber:     color-mix(in srgb, var(--color-amber) 8%, transparent);
   --dim-phosphor:  rgba(160, 240, 0, 0.08);
-  --dim-cyber:     rgba(72, 209, 255, 0.08);
+  --dim-cyber:     color-mix(in srgb, var(--color-cyber) 5%, transparent);
   --dim-rust:      rgba(210, 64, 30, 0.10);
 
   /* ——— Borders ——— */
-  --color-border:        rgba(239, 231, 214, 0.07);
-  --color-border-strong: rgba(239, 231, 214, 0.14);
-  --color-border-amber:  rgba(255, 184, 0, 0.28);
-  --color-border-cyber:  rgba(72, 209, 255, 0.22);
+  --color-border:        rgba(231, 236, 229, 0.09);
+  --color-border-strong: rgba(231, 236, 229, 0.18);
+  --color-border-amber:  color-mix(in srgb, var(--color-amber) 40%, transparent);
+  --color-border-cyber:  color-mix(in srgb, var(--color-cyber) 22%, transparent);
 
   /* ——— Fonts ——— */
   --font-stencil: 'Big Shoulders Stencil Display', 'Stencil Std', Impact, sans-serif;
+  --font-brand:   'Syne', 'Arial Black', sans-serif;
   --font-chunk:   'Rubik Mono One', 'Impact', 'Arial Black', sans-serif;
-  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', monospace;
+  --font-mono:    'IBM Plex Mono', 'SF Mono', monospace;
 
   /* ——— Legacy aliases kept so components still read them ——— */
   --color-surface:         var(--color-steel);
@@ -88,12 +89,12 @@ body {
   /* Layered industrial atmosphere */
   background-image:
     /* faint blueprint grid */
-    linear-gradient(0deg,  transparent 95%, rgba(72, 209, 255, 0.025) 95%),
-    linear-gradient(90deg, transparent 95%, rgba(72, 209, 255, 0.025) 95%),
+    linear-gradient(0deg,  transparent 95%, rgba(231, 236, 229, 0.025) 95%),
+    linear-gradient(90deg, transparent 95%, rgba(231, 236, 229, 0.025) 95%),
     /* amber vignette bottom-left */
-    radial-gradient(ellipse at 10% 120%, rgba(255, 184, 0, 0.05), transparent 55%),
+    radial-gradient(ellipse at 10% 120%, rgba(226, 103, 61, 0.05), transparent 55%),
     /* cyber vignette top-right */
-    radial-gradient(ellipse at 95% -10%, rgba(72, 209, 255, 0.04), transparent 55%);
+    radial-gradient(ellipse at 95% -10%, rgba(231, 236, 229, 0.04), transparent 55%);
   background-size: 48px 48px, 48px 48px, auto, auto;
   background-attachment: fixed;
   position: relative;
@@ -186,7 +187,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 800; letter-spacing: 0.01em; }
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--color-cyber);
-  text-shadow: 0 0 6px var(--glow-cyber), 0 0 14px rgba(72,209,255,0.2);
+  text-shadow: 0 0 6px var(--glow-cyber), 0 0 14px rgba(231,236,229,0.2);
   letter-spacing: 0.02em;
 }
 
@@ -198,37 +199,14 @@ h1, h2, h3, h4 { margin: 0; font-weight: 800; letter-spacing: 0.01em; }
   text-shadow: 0 0 6px var(--glow-amber);
 }
 
-/* Stencil gradient wordmark — what HACKFW uses */
+/* Flat HackFW wordmark, aligned with the program site. */
 .wordmark {
-  font-family: var(--font-stencil);
+  font-family: var(--font-brand);
   font-weight: 800;
-  text-transform: uppercase;
-  line-height: 0.88;
-  letter-spacing: -0.01em;
-  background: linear-gradient(
-    180deg,
-    var(--color-bone) 0%,
-    var(--color-amber-bright) 45%,
-    var(--color-amber) 65%,
-    var(--color-amber-deep) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 4px 0 rgba(0,0,0,0.6)) drop-shadow(0 0 30px var(--glow-amber));
-  position: relative;
-}
-
-/* Horizontal cut stripe that slices across stenciled wordmarks */
-.wordmark::after {
-  content: "";
-  position: absolute;
-  left: -4%; right: -4%;
-  top: 52%;
-  height: 4px;
-  background: var(--color-void);
-  mix-blend-mode: normal;
-  pointer-events: none;
+  text-transform: none;
+  line-height: 0.95;
+  letter-spacing: -0.075em;
+  color: var(--color-bone);
 }
 
 /* =============================================================
@@ -377,7 +355,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 800; letter-spacing: 0.01em; }
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 -2px 0 rgba(0, 0, 0, 0.35),
     0 2px 0 #5C3F00,
-    0 6px 20px rgba(255, 184, 0, 0.25);
+    0 6px 20px rgba(226, 103, 61, 0.25);
   transition: transform 0.06s ease, box-shadow 0.2s ease, filter 0.2s;
   text-shadow: 0 1px 0 rgba(255,255,255,0.25);
 }
@@ -391,7 +369,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 800; letter-spacing: 0.01em; }
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     inset 0 -2px 0 rgba(0, 0, 0, 0.4),
     0 2px 0 #5C3F00,
-    0 8px 28px rgba(255, 184, 0, 0.45);
+    0 8px 28px rgba(226, 103, 61, 0.45);
 }
 .btn-primary:active {
   transform: translateY(2px);
@@ -477,8 +455,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 800; letter-spacing: 0.01em; }
   border-color: var(--color-border-amber);
   box-shadow:
     inset 0 2px 4px rgba(0, 0, 0, 0.6),
-    0 0 0 3px rgba(255, 184, 0, 0.12),
-    0 0 20px rgba(255, 184, 0, 0.08);
+    0 0 0 3px rgba(226, 103, 61, 0.12),
+    0 0 20px rgba(226, 103, 61, 0.08);
 }
 
 textarea.input-field { line-height: 1.55; }
@@ -545,7 +523,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     inset 0 -1px 0 rgba(0, 0, 0, 0.4),
     0 3px 0 #3B2900,
     0 0 28px var(--glow-amber),
-    0 0 60px rgba(255, 184, 0, 0.25);
+    0 0 60px rgba(226, 103, 61, 0.25);
 }
 input[type="range"]::-webkit-slider-thumb:active { transform: translateY(2px); }
 
@@ -576,7 +554,7 @@ input[type="range"]::-moz-range-thumb {
   box-shadow:
     inset 0 1px 0 rgba(239, 231, 214, 0.06),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    0 0 28px rgba(255, 184, 0, 0.08);
+    0 0 28px rgba(226, 103, 61, 0.08);
 }
 .card-glow--live {
   border-color: rgba(160, 240, 0, 0.45);
@@ -611,7 +589,7 @@ input[type="range"]::-moz-range-thumb {
 /* Amber variant for pending / command scoring */
 .score-badge--amber {
   color: var(--color-amber-bright);
-  text-shadow: 0 0 6px var(--glow-amber), 0 0 18px rgba(255, 184, 0, 0.35);
+  text-shadow: 0 0 6px var(--glow-amber), 0 0 18px rgba(226, 103, 61, 0.35);
 }
 
 /* =============================================================
@@ -675,7 +653,7 @@ input[type="range"]::-moz-range-thumb {
   text-shadow: 0 0 10px var(--glow-amber), 0 0 2px rgba(255,255,255,0.3);
   border-color: var(--color-border-amber);
   background:
-    linear-gradient(180deg, rgba(255,184,0,0.18) 0%, rgba(255,184,0,0.02) 100%),
+    linear-gradient(180deg, rgba(226,103,61,0.18) 0%, rgba(226,103,61,0.02) 100%),
     linear-gradient(180deg, #14151B 0%, #0B0C10 100%);
 }
 .rank-gold::before { color: var(--color-amber-deep); }
@@ -747,7 +725,7 @@ button:active > .briefing-toggle {
   box-shadow:
     inset 0 -1px 0 rgba(255, 255, 255, 0.04),
     inset 0 -2px 3px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 184, 0, 0.18);
+    0 0 0 1px rgba(226, 103, 61, 0.18);
 }
 
 /* Hide label on very narrow screens; chevron stays big + centered */
@@ -848,4 +826,175 @@ button:active > .briefing-toggle {
 :focus-visible {
   outline: 2px solid var(--color-amber-bright);
   outline-offset: 2px;
+}
+
+/* Public standings: podium cards for the top places, a dense grid below, detail on demand. */
+.standings-shell { max-width: 1280px; margin: 0 auto; padding: 20px clamp(16px, 4vw, 48px) 28px; }
+.standings-shell--display { max-width: 1760px; }
+.standings-brandbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--color-border-strong); }
+.standings-caption { color: var(--color-text-secondary); font-size: 12px; margin: 8px 0 0; }
+.standings-controls { display: flex; flex-wrap: wrap; gap: 18px; font-size: 12px; }
+.standings-controls a { color: var(--color-text-secondary); text-decoration: underline; text-underline-offset: 4px; padding: 6px 0; }
+.standings-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 16px; }
+.standings-heading h1 { font: 800 clamp(1.5rem, 3vw, 2rem)/1.1 var(--font-brand); letter-spacing: -0.04em; text-wrap: balance; }
+.standings-summary { font-size: 11px; color: var(--color-text-secondary); margin: 8px 0 0; text-wrap: pretty; }
+.standings-pulse { display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; border-radius: 50%; background: var(--color-phosphor); box-shadow: 0 0 6px var(--glow-phosphor); animation: pulse 2s ease-in-out infinite; }
+.standings-onstage { font-size: 12px; color: var(--color-text-secondary); margin: 0; padding: 4px 10px; border: 1px solid rgba(160,240,0,0.3); background: var(--dim-phosphor); }
+.standings-onstage strong { color: var(--color-bone); margin-left: 4px; }
+
+.standings-podium, .standings-grid { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; align-items: start; }
+.standings-podium { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); margin-bottom: 8px; }
+.standings-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.standings-group { display: flex; align-items: center; gap: 10px; margin: 20px 0 8px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-text-tertiary); }
+.standings-group::after { content: ""; flex: 1; height: 1px; background: var(--color-border); }
+
+.standings-card { --medal: var(--color-text-secondary); background: var(--color-steel); border: 1px solid var(--color-border-strong); transition-property: border-color, background-color; transition-duration: 150ms; }
+.standings-card--1 { --medal: #E9C766; box-shadow: 0 0 32px -14px rgba(233,199,102,0.5); }
+.standings-card--2 { --medal: #C9D2D9; }
+.standings-card--3 { --medal: #D8A17C; }
+.standings-podium .standings-card { border-top: 2px solid var(--medal); background: linear-gradient(180deg, color-mix(in srgb, var(--medal) 9%, transparent), transparent 75%), var(--color-steel); }
+.standings-card--live, .standings-podium .standings-card--live { border-color: rgba(160,240,0,0.45); border-top-color: var(--medal); }
+.standings-card--unranked { background: transparent; border-style: dashed; }
+.standings-card--unranked h2 { color: var(--color-text-secondary); }
+.standings-card:has(> details > summary:hover) { background-color: var(--color-steel-raised); }
+
+.standings-card-main { position: relative; display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px 12px; }
+summary.standings-card-main { list-style: none; cursor: pointer; }
+summary.standings-card-main::-webkit-details-marker { display: none; }
+.standings-rank { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--medal); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.standings-rank > span { font-size: 11px; }
+.standings-team { display: flex; flex-direction: column; min-width: 0; }
+.standings-name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; }
+.standings-team h2 { min-width: 0; font: 700 14px/1.3 var(--font-mono); color: var(--color-bone); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.standings-meta { margin-top: 2px; font-size: 11px; line-height: 1.4; color: var(--color-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.standings-tag { flex: none; font-size: 10px; line-height: 1.6; padding: 0 6px; white-space: nowrap; color: var(--color-text-tertiary); border: 1px solid var(--color-border-strong); }
+.standings-tag--live { color: var(--color-phosphor); border-color: rgba(160,240,0,0.3); }
+.standings-tag--pending { color: var(--color-amber-bright); border-color: var(--color-border-amber); }
+.standings-score { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.standings-points { display: flex; align-items: baseline; gap: 2px; }
+.standings-points strong { font: 700 20px/1.1 var(--font-mono); color: var(--medal); font-variant-numeric: tabular-nums; }
+.standings-points > span { font-size: 10px; color: var(--color-text-tertiary); }
+.standings-score small { margin-top: 3px; font-size: 10px; color: var(--color-text-tertiary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.standings-caret { display: inline-block; margin-left: 4px; transition: rotate 150ms ease; }
+details[open] .standings-caret { rotate: 180deg; }
+.standings-bar, .standings-minibar { background: var(--color-border); overflow: hidden; }
+.standings-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
+.standings-bar > span, .standings-minibar > span { display: block; height: 100%; background: var(--medal); transform-origin: left; scale: var(--fill) 1; transition: scale 400ms cubic-bezier(0.2, 0, 0, 1); }
+
+/* Podium: rank + team stacked left, the score anchored right. */
+.standings-podium .standings-card-main { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "rank score" "team score"; align-items: end; gap: 6px 16px; padding: 14px 16px 16px; }
+.standings-podium .standings-rank { grid-area: rank; font-size: 15px; letter-spacing: 0.04em; }
+.standings-podium .standings-team { grid-area: team; }
+.standings-podium .standings-score { grid-area: score; }
+.standings-podium .standings-team h2 { font-size: clamp(1rem, 1.6vw, 1.2rem); }
+.standings-podium .standings-points strong { font-size: clamp(1.75rem, 3vw, 2.25rem); }
+.standings-podium .standings-bar { height: 3px; }
+.standings-podium .standings-tag--live { position: absolute; top: 14px; right: 16px; }
+
+.standings-details { padding: 10px 14px 12px; border-top: 1px solid var(--color-border); font-size: 11px; color: var(--color-text-tertiary); }
+.standings-details dl { display: grid; gap: 6px; margin: 0 0 8px; }
+.standings-details dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.standings-details dt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standings-details dd { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.standings-minibar { width: 56px; height: 3px; }
+.standings-minibar > span { background: var(--color-amber); }
+.standings-links { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.standings-links a { color: var(--color-amber-bright); padding: 4px 0; }
+
+/* Presentation view: wider canvas, type sized for a projector. */
+.standings--display .standings-card-main { padding-block: 12px 14px; }
+.standings--display .standings-team h2 { font-size: 16px; }
+.standings--display .standings-points strong { font-size: 24px; }
+.standings--display .standings-podium .standings-team h2 { font-size: clamp(1.1rem, 1.8vw, 1.5rem); }
+.standings--display .standings-podium .standings-points strong { font-size: clamp(2rem, 3.5vw, 2.75rem); }
+
+.standings-empty { padding: 48px 20px; text-align: center; background: var(--color-steel); border: 1px solid var(--color-border-strong); font-size: 14px; }
+.standings-footer { color: var(--color-text-tertiary); font-size: 11px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border-strong); }
+@media (max-width: 520px) {
+  .standings-card-main { grid-template-columns: 2.25rem minmax(0, 1fr) auto; gap: 10px; padding: 10px 12px 12px; }
+  .standings-rank > span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; scroll-behavior: auto !important; }
+}
+
+/* Judge workspace: focus the active form and keep touch controls reachable. */
+.judge-shell { max-width: 760px; margin: 0 auto; padding: 0 max(12px, env(safe-area-inset-left)) 28px max(12px, env(safe-area-inset-right)); }
+.judge-header { position: sticky; top: 0; z-index: 30; background: var(--color-void); padding: max(12px, env(safe-area-inset-top)) 0 8px; border-bottom: 1px solid var(--color-border-strong); }
+.judge-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.judge-brand-row > div { min-width: 0; }
+.judge-brand-row p { margin: 4px 0 0; font-size: 11px; color: var(--color-text-secondary); }
+.judge-brand-row button { min-height: 44px; padding: 8px 12px; letter-spacing: 0.06em; font-size: 11px; flex-shrink: 0; }
+.judge-nav { display: flex; gap: 4px; margin-top: 12px; }
+.judge-nav a { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 6px; font-size: 12px; color: var(--color-text-secondary); text-decoration: none; background: var(--color-steel); border: 1px solid var(--color-border-strong); text-align: center; }
+.judge-nav a[aria-current="page"] { color: var(--color-amber-bright); border-color: var(--color-border-amber); }
+.judge-identity { font-size: 11px; color: var(--color-text-tertiary); margin: 6px 0 0; }
+.judge-page { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; }
+.judge-page-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.judge-page-heading h1 { font: 700 22px/1.3 var(--font-mono); }
+.judge-page-heading button { min-height: 44px; font-size: 11px; padding: 8px 10px; letter-spacing: 0.03em; }
+.judge-stage-status { margin: 0; font-size: 13px; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.judge-live-shortcut { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px; border: 1px solid var(--color-border-amber); background: var(--color-steel); }
+.judge-live-shortcut > div { min-width: 0; flex: 1 1 140px; }
+.judge-live-shortcut span { display: block; font-size: 11px; color: var(--color-phosphor); }
+.judge-live-shortcut strong { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.judge-live-shortcut button { min-height: 44px; font-size: 11px; letter-spacing: 0.03em; }
+.judge-transition-note { font-size: 12px; color: var(--color-text-secondary); }
+.judge-transition-note summary { cursor: pointer; min-height: 32px; padding: 5px 0; }
+.judge-transition-note p { margin: 8px 0; line-height: 1.6; }
+.judge-project-card { overflow: visible; }
+.judge-project-region { scroll-margin-top: calc(164px + env(safe-area-inset-top)); }
+.judge-project-heading { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; padding: 16px; border: 0; background: transparent; cursor: pointer; color: var(--color-text-primary); }
+.judge-project-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 11px; color: var(--color-text-secondary); }
+.judge-project-heading h2 { font: 700 22px/1.25 var(--font-mono); margin-top: 8px; overflow-wrap: anywhere; }
+.judge-project-heading p { font-size: 12px; margin: 6px 0 0; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.judge-live-label, .judge-verified-label { color: var(--color-phosphor); }
+.judge-pending-label { color: var(--color-amber-bright); }
+.judge-expand-mark { flex-shrink: 0; font-size: 22px; color: var(--color-text-secondary); }
+.judge-scoring-form { display: flex; flex-direction: column; gap: 20px; padding: 0 16px; }
+.judge-evidence { font-size: 12px; color: var(--color-text-secondary); border-top: 1px solid var(--color-border-strong); padding-top: 8px; }
+.judge-evidence summary { cursor: pointer; padding: 8px 0; min-height: 40px; line-height: 1.5; }
+.judge-evidence p { font-size: 13px; line-height: 1.6; margin: 10px 0; overflow-wrap: anywhere; }
+.judge-evidence ul { padding-left: 18px; line-height: 1.8; margin: 10px 0; }
+.judge-evidence-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.judge-evidence-links a { min-height: 40px; display: flex; align-items: center; color: var(--color-amber-bright); }
+.judge-score-fields { min-inline-size: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 24px; }
+.judge-score-fields:disabled { opacity: 0.6; }
+.judge-score-label { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.judge-score-label label { font-size: 14px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.judge-score-label label span { display: block; font-size: 11px; font-weight: 400; color: var(--color-text-tertiary); }
+.judge-score-label output { flex-shrink: 0; font-size: 25px; font-weight: 700; color: var(--color-amber-bright); font-variant-numeric: tabular-nums; line-height: 1.3; }
+.judge-score-label output small { font-size: 12px; margin-left: 3px; font-weight: 400; color: var(--color-text-secondary); }
+.judge-score-control > p { font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); margin: 8px 0; overflow-wrap: anywhere; }
+.judge-score-inputs { display: flex; align-items: center; gap: 12px; }
+.judge-score-inputs button { width: 44px; min-width: 44px; height: 44px; border: 1px solid var(--color-border-strong); background: var(--color-steel-edge); color: var(--color-bone); font: 600 23px/1 var(--font-mono); cursor: pointer; border-radius: 3px; }
+.judge-score-inputs button:disabled { opacity: 0.35; cursor: default; }
+.judge-score-inputs input[type="range"] { min-width: 0; flex: 1; height: 44px; margin: 0; touch-action: pan-y; }
+.judge-score-inputs input[type="range"]::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -10px; }
+.judge-score-inputs input[type="range"]::-moz-range-thumb { width: 28px; height: 28px; }
+.judge-score-scale { display: flex; justify-content: space-between; gap: 12px; margin: 4px 0 0; font-size: 10px; color: var(--color-text-tertiary); }
+.judge-notes label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.judge-notes label span { font-size: 12px; font-weight: 400; color: var(--color-text-tertiary); }
+.judge-notes textarea { font-size: 16px; line-height: 1.6; min-height: 110px; resize: vertical; }
+.judge-notes p { font-size: 11px; line-height: 1.6; color: var(--color-text-secondary); margin: 8px 0 0; }
+.judge-submit-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 16px; background: var(--color-ink); margin: 0 -16px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--color-border-strong); border-radius: 0 0 3px 3px; }
+.judge-project-card--focused .judge-submit-bar { position: sticky; bottom: 0; z-index: 20; box-shadow: 0 -8px 20px rgba(0,0,0,0.2); }
+.judge-total { display: flex; flex-direction: column; }
+.judge-total > span { font-size: 10px; color: var(--color-text-secondary); }
+.judge-total strong { font: 700 24px/1.3 var(--font-mono); color: var(--color-amber-bright); font-variant-numeric: tabular-nums; }
+.judge-total small { font-size: 11px; margin-left: 2px; color: var(--color-text-secondary); font-weight: 400; }
+.judge-submit-bar button { width: 100%; justify-content: center; min-height: 48px; padding: 10px; font-size: 12px; letter-spacing: 0.03em; white-space: normal; }
+.judge-submit-bar > p { grid-column: 1 / -1; font-size: 11px; margin: 4px 0 0; line-height: 1.5; }
+.judge-submitted-status { color: var(--color-phosphor); }
+.judge-draft-status { color: var(--color-text-secondary); }
+.judge-score-loading { font-size: 13px; color: var(--color-text-secondary); }
+.judge-submit-error { font-size: 13px; color: var(--color-amber-bright); overflow-wrap: anywhere; }
+.judge-shell #judge-guide { scroll-margin-top: 164px; }
+.judge-shell .btn-primary, .judge-shell .btn-secondary { min-height: 44px; }
+@media (max-width: 520px) {
+  .briefing-criteria-bar { display: none; }
+  .judge-shell .briefing-toggle__label { display: none; }
+  .judge-project-heading { padding: 14px; }
+  .judge-project-heading h2 { font-size: 20px; }
+  .judge-project-tags { font-size: 10px; }
 }

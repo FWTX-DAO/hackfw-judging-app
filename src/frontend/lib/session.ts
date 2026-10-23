@@ -51,7 +51,7 @@ export const sessionStore = {
       const stale: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith("hackfw_draft_notes_")) stale.push(k);
+        if (k && (k.startsWith("hackfw_draft_notes_") || k.startsWith("hackfw_draft_score_"))) stale.push(k);
       }
       for (const k of stale) localStorage.removeItem(k);
     } catch {

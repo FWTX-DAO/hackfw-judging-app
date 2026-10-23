@@ -1,253 +1,113 @@
 import React from "react";
-import type { CriteriaWeight } from "../lib/types";
+import { requirementLabel } from "../../shared/submissions";
+import { ordinal, rankStandings } from "../../shared/standings";
+import type { CriteriaWeight, LeaderboardEntry } from "../lib/types";
 import { useLeaderboard } from "../hooks/useQueries";
 
-export function Leaderboard({ criteria }: { criteria: CriteriaWeight[] }) {
+type Standing = { entry: LeaderboardEntry; place: number | null };
+type CardProps = Standing & { criteria: CriteriaWeight[]; totalJudges: number; presentation: boolean };
+
+/** Bar fill as a 0–1 fraction of the 10-point scale. */
+const fill = (score: number) => ({ "--fill": Math.min(Math.max(score / 10, 0), 1) }) as React.CSSProperties;
+
+export function Leaderboard({ criteria, presentation = false }: { criteria: CriteriaWeight[]; presentation?: boolean }) {
   const { data, isPending, isError, error, refetch } = useLeaderboard();
-  const entries = data ?? [];
-
-  const rankClass = (i: number, hasScores: boolean) => {
-    if (!hasScores) return "";
-    if (i === 0) return "rank-gold";
-    if (i === 1) return "rank-silver";
-    if (i === 2) return "rank-bronze";
-    return "";
-  };
-
-  const shortLabel = (label: string) => {
-    if (label.length <= 14) return label;
-    return label
-      .split(/[^a-zA-Z]+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase();
-  };
-
-  // Server reports the panel size on every row; fall back to "max judges
-  // who scored any one project" only if the field is absent (older payload).
-  const totalJudges =
-    entries[0]?.total_judges ??
-    entries.reduce((s, e) => Math.max(s, e.judge_count), 0);
+  const entries = rankStandings(data ?? []);
+  const totalJudges = data?.[0]?.total_judges ?? 0;
+  const active = data?.find((entry) => entry.presenting === 1);
+  // Ties can put more than three entries on the podium; the grid absorbs them.
+  const podium = entries.filter(({ place }) => place !== null && place <= 3);
+  const field = entries.filter(({ place }) => place !== null && place > 3);
+  const unranked = entries.filter(({ place }) => place === null);
+  const card = (standing: Standing) => (
+    <StandingCard key={standing.entry.id} {...standing} criteria={criteria} totalJudges={totalJudges} presentation={presentation} />
+  );
 
   return (
-    <div className="animate-in">
-      {/* Header bar — like a control panel caption */}
-      <div className="flex items-end justify-between mb-4 flex-wrap gap-3">
+    <section className={`standings ${presentation ? "standings--display" : ""}`} aria-labelledby="standings-title">
+      <div className="standings-heading">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="tag-square" />
-            <span className="serial">Display // Rack 01</span>
-          </div>
-          <h2 className="stencil" style={{ fontSize: "clamp(1.8rem, 4vw, 2.4rem)", color: "var(--color-bone)", lineHeight: 1 }}>
-            Live Standings
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="serial-plate"><span className="dot" />Entries · {entries.length}</span>
-          {totalJudges > 0 && (
-            <span className="serial-plate serial-plate--cyber"><span className="dot" />Max Judges · {totalJudges}</span>
-          )}
-        </div>
-      </div>
-
-      <div className="hazard-stripes" style={{ height: 3, marginBottom: 16, borderRadius: 1, opacity: 0.55 }} />
-
-      {isPending && (
-        <div className="plate plate--ruled plate--riveted text-center" style={{ padding: "48px 20px" }}>
-          <p className="serial" style={{ fontSize: 11 }}>// Loading standings…</p>
-        </div>
-      )}
-
-      {!isPending && isError && (
-        <div className="plate plate--ruled plate--riveted text-center" style={{ padding: "48px 20px" }}>
-          <p className="serial" style={{ fontSize: 11, color: "var(--color-rust)" }}>
-            // Failed to load: {(error as Error)?.message || "unknown error"}
+          <h1 id="standings-title">Live standings</h1>
+          <p className="standings-summary">
+            <span className="standings-pulse" aria-hidden="true" />
+            Live · {entries.length} submission{entries.length === 1 ? "" : "s"} · {totalJudges} judge{totalJudges === 1 ? "" : "s"} · Provisional until judging closes; ties share a place
           </p>
-          <button onClick={() => refetch()} className="btn-secondary" style={{ marginTop: 12 }}>
-            Retry
-          </button>
         </div>
-      )}
-
-      {!isPending && !isError && entries.length === 0 && (
-        <div className="plate plate--ruled plate--riveted text-center" style={{ padding: "48px 20px" }}>
-          <p className="serial" style={{ fontSize: 11 }}>// No submissions loaded yet</p>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gap: 10 }}>
-        {entries.map((entry, i) => {
-          const hasScores = entry.judge_count > 0;
-          const isLeader = i === 0 && hasScores;
-          const isLive = entry.presenting === 1;
-          return (
-            <div
-              key={entry.id}
-              className={`card-glow ${isLive ? "card-glow--live" : ""}`}
-              style={{
-                display: "flex",
-                alignItems: "stretch",
-                gap: 0,
-                padding: 0,
-                overflow: "hidden",
-              }}
-            >
-              {/* Slot plate */}
-              <div
-                className={`rank-plate ${rankClass(i, hasScores)}`}
-                style={{
-                  borderRadius: 0,
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderBottom: "none",
-                  minWidth: 64,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                }}
-              >
-                {hasScores ? String(i + 1).padStart(2, "0") : "—"}
-              </div>
-
-              {/* Body */}
-              <div style={{ flex: 1, padding: "16px 18px", minWidth: 0 }}>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  {isLive && (
-                    <span className="serial-plate serial-plate--live flicker">
-                      <span className="dot" />Live
-                    </span>
-                  )}
-                  {isLeader && (
-                    <span className="serial-plate" style={{ color: "var(--color-amber-bright)", borderColor: "var(--color-border-amber)" }}>
-                      <span className="dot" />Leader
-                    </span>
-                  )}
-                  <span className="chip chip--team">{entry.team}</span>
-                  {!entry.requirements_met && (
-                    <span className="chip chip--danger">⚠ Missing · {entry.missing_requirements.join("/")}</span>
-                  )}
-                </div>
-
-                <h3
-                  className="stencil"
-                  style={{
-                    fontSize: "clamp(1.2rem, 2.6vw, 1.55rem)",
-                    color: "var(--color-bone)",
-                    lineHeight: 1.05,
-                  }}
-                >
-                  {entry.name}
-                </h3>
-
-                {hasScores && (
-                  <div className="mt-3" style={{ display: "grid", gap: 5 }}>
-                    {criteria.map((c) => {
-                      const avg = (entry as any)[`avg_${c.key}`] as number | undefined;
-                      if (typeof avg !== "number") return null;
-                      const barPct = ((avg - 1) / 9) * 100;
-                      return (
-                        <div key={c.key} className="flex items-center" style={{ gap: 10 }}>
-                          <span
-                            className="serial"
-                            style={{ width: 110, flexShrink: 0, fontSize: 9 }}
-                            title={c.label}
-                          >
-                            {shortLabel(c.label)}
-                          </span>
-                          <div
-                            style={{
-                              flex: 1,
-                              height: 8,
-                              background:
-                                "repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(239,231,214,0.12) calc(10% - 1px) 10%), #0A0A0C",
-                              border: "1px solid rgba(0,0,0,0.8)",
-                              boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6)",
-                              position: "relative",
-                              borderRadius: 1,
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: `${Math.max(0, Math.min(100, barPct))}%`,
-                                height: "100%",
-                                background: "linear-gradient(180deg, var(--color-amber-bright) 0%, var(--color-amber) 70%, var(--color-amber-deep) 100%)",
-                                boxShadow: "0 0 8px var(--glow-amber)",
-                              }}
-                            />
-                          </div>
-                          <span className="readout-amber" style={{ fontSize: 12, width: 32, textAlign: "right" }}>
-                            {avg.toFixed(1)}
-                          </span>
-                          <span className="serial" style={{ fontSize: 9, width: 32, textAlign: "right" }}>
-                            ×{c.weight}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {(entry.github_url || entry.video_url || entry.readme_url || entry.devpost_url) && (
-                  <div className="flex gap-4 mt-3 flex-wrap" style={{ fontSize: 10 }}>
-                    {entry.github_url && <LinkChip href={entry.github_url} label="GITHUB" />}
-                    {entry.readme_url && <LinkChip href={entry.readme_url} label="README" />}
-                    {entry.video_url && <LinkChip href={entry.video_url} label="VIDEO" />}
-                    {entry.devpost_url && <LinkChip href={entry.devpost_url} label="DEVPOST" />}
-                  </div>
-                )}
-              </div>
-
-              {/* Right gauge panel */}
-              <div
-                style={{
-                  borderLeft: "1px solid var(--color-border-strong)",
-                  padding: "16px 20px",
-                  minWidth: 120,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  justifyContent: "center",
-                  background: "linear-gradient(180deg, rgba(0,0,0,0.2), transparent)",
-                }}
-              >
-                <span className="serial" style={{ fontSize: 9 }}>Weighted</span>
-                <div className={`score-badge ${isLeader ? "score-badge--amber" : ""}`} style={{ fontSize: "2.6rem", lineHeight: 1, marginTop: 2 }}>
-                  {hasScores ? entry.avg_weighted.toFixed(1) : "—.—"}
-                </div>
-                <span className="serial" style={{ fontSize: 9, marginTop: 4 }}>
-                  {totalJudges > 0
-                    ? `${entry.judge_count} / ${totalJudges} Judges`
-                    : `${entry.judge_count} Judges`}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+        {active && <p className="standings-onstage"><span className="standings-pulse" aria-hidden="true" /> On stage <strong>{active.name}</strong></p>}
       </div>
-    </div>
+
+      {isPending && <p role="status" className="standings-empty">Loading standings…</p>}
+      {isError && <div role="alert" className="standings-empty">
+        <p>Unable to load standings: {(error as Error).message}</p>
+        <button onClick={() => refetch()} className="btn-secondary">Retry</button>
+      </div>}
+      {!isPending && !isError && !entries.length && <p className="standings-empty">Teams will appear here when submissions are added.</p>}
+      {!isPending && !isError && entries.length > 0 && <>
+        {podium.length > 0 && <ol className="standings-podium" aria-label="Top places">{podium.map(card)}</ol>}
+        {field.length > 0 && <ol className="standings-grid" aria-label="Remaining places">{field.map(card)}</ol>}
+        {unranked.length > 0 && <>
+          <p id="standings-unranked" className="standings-group">Not yet ranked · {unranked.length}</p>
+          <ul className="standings-grid" aria-labelledby="standings-unranked">{unranked.map(card)}</ul>
+        </>}
+      </>}
+    </section>
   );
 }
 
-function LinkChip({ href, label }: { href: string; label: string }) {
+function StandingCard({ entry, place, criteria, totalJudges, presentation }: CardProps) {
+  const className = [
+    "standings-card",
+    place && place <= 3 ? `standings-card--${place}` : "",
+    place ? "" : "standings-card--unranked",
+    entry.presenting === 1 ? "standings-card--live" : "",
+  ].filter(Boolean).join(" ");
+  const meta = `${entry.team}${entry.problem_track ? ` · ${entry.problem_track}` : ""}`;
+
+  // <summary> only allows phrasing + heading content, so the card body is built from spans.
+  const main = <>
+    <span className="standings-rank" aria-label={place ? `${ordinal(place)} place` : "Not ranked"}>
+      {place ? <>{place <= 3 && <span aria-hidden="true">✦</span>}{ordinal(place)}</> : "—"}
+    </span>
+    <span className="standings-team">
+      <span className="standings-name">
+        <h2>{entry.name}</h2>
+        {entry.presenting === 1 && <span className="standings-tag standings-tag--live">On stage</span>}
+      </span>
+      <span className="standings-meta" title={meta}>{meta}</span>
+    </span>
+    <span className="standings-score">
+      {place ? <span className="standings-points">
+        <strong aria-label={`Weighted score ${entry.avg_weighted.toFixed(1)} out of 10`}>{entry.avg_weighted.toFixed(1)}</strong>
+        <span aria-hidden="true">/10</span>
+      </span> : entry.requirements_met
+        ? <span className="standings-tag">Awaiting scores</span>
+        : <span className="standings-tag standings-tag--pending" title={entry.missing_requirements.map(requirementLabel).join(", ")}>Verification pending</span>}
+      <small>{entry.judge_count}/{totalJudges} judged{!presentation && <span className="standings-caret" aria-hidden="true">▾</span>}</small>
+    </span>
+    {place && <span className="standings-bar" aria-hidden="true"><span style={fill(entry.avg_weighted)} /></span>}
+  </>;
+
+  if (presentation) return <li className={className}><div className="standings-card-main">{main}</div></li>;
+
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        fontFamily: "var(--font-mono)",
-        fontWeight: 600,
-        letterSpacing: "0.22em",
-        color: "var(--color-amber)",
-        textDecoration: "none",
-        borderBottom: "1px dashed rgba(255, 184, 0, 0.35)",
-        paddingBottom: 1,
-      }}
-      onMouseEnter={(e) => ((e.currentTarget.style.color = "var(--color-amber-bright)"))}
-      onMouseLeave={(e) => ((e.currentTarget.style.color = "var(--color-amber)"))}
-    >
-      ↗ {label}
-    </a>
+    <li className={className}>
+      <details>
+        <summary className="standings-card-main">{main}</summary>
+        <div className="standings-details">
+          {entry.judge_count > 0 && <dl>{criteria.map((criterion) => {
+            const value = (entry as unknown as Record<string, unknown>)[`avg_${criterion.key}`];
+            return typeof value === "number" ? <div key={criterion.key}>
+              <dt>{criterion.label}</dt>
+              <dd><span className="standings-minibar" aria-hidden="true"><span style={fill(value)} /></span>{value.toFixed(1)}</dd>
+            </div> : null;
+          })}</dl>}
+          <div className="standings-links">
+            {entry.github_url && <a href={entry.github_url} target="_blank" rel="noreferrer">GitHub ↗</a>}
+            {entry.video_url && <a href={entry.video_url} target="_blank" rel="noreferrer">Demo video ↗</a>}
+            {entry.devpost_url && <a href={entry.devpost_url} target="_blank" rel="noreferrer">Devpost ↗</a>}
+          </div>
+        </div>
+      </details>
+    </li>
   );
 }

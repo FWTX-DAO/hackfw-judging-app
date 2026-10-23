@@ -35,19 +35,19 @@ export type HackathonConfig = {
   judges: { name: string; email: string }[];
   criteria: HackathonCriterion[];
   /** Must-have submission requirements gate. */
-  requirements: { github: boolean; readme: boolean; video: boolean };
+  requirements: { problem_track: boolean; github: boolean; video: boolean; talent_registration: boolean; in_person_demo_day: boolean };
 };
 
 const config: HackathonConfig = {
   branding: {
     name: "HackFW",
-    title_line: "Scaling Fort Worth Builders",
-    tagline: "Convergent Technology // Accelerating Reindustrialization",
-    footer: "FWTX DAO // Convergent Technology // 2026",
+    title_line: "MADE Challenge // Demo Day",
+    tagline: "Rebuilding System Density",
+    footer: "Fort Worth DAO + MADE // 2026",
     palette: {
-      primary: "#F59E0B",
-      primary_bright: "#FCD34D",
-      accent: "#00E5A0",
+      primary: "#E2673D",
+      primary_bright: "#F48A5F",
+      accent: "#E7ECE5",
     },
   },
 
@@ -94,9 +94,11 @@ const config: HackathonConfig = {
   ],
 
   requirements: {
+    problem_track: true,
     github: true,
-    readme: true,
     video: true,
+    talent_registration: true,
+    in_person_demo_day: true,
   },
 };
 

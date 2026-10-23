@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useCriteria } from "../hooks/useQueries";
+import { VERIFICATION_ITEMS } from "../../shared/submissions";
 
 const STORAGE_KEY = "hackfw_briefing_collapsed";
 
@@ -10,7 +11,7 @@ const STORAGE_KEY = "hackfw_briefing_collapsed";
 export function JudgingBriefing() {
   const { data: criteria = [] } = useCriteria();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
+    try { return localStorage.getItem(STORAGE_KEY) !== "0"; } catch { return true; }
   });
 
   useEffect(() => {
@@ -82,11 +83,12 @@ export function JudgingBriefing() {
             <SectionLabel>// The Flow</SectionLabel>
             <ol style={{ paddingLeft: 22, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
               <Step n={1}>
-                Watch for the <Live>Live</Live> banner at the top — the admin marks each project as it
-                takes the stage, and it syncs to every judge in realtime.
+                At each team transition, the admin marks the next project <Live>Live</Live>.
+                Your view switches to Live Judging and opens that team's scoring panel automatically,
+                including when you are viewing the leaderboard.
               </Step>
               <Step n={2}>
-                Tap <Em>Grade Now</Em> (or open that project's card directly) to reveal the scoring panel.
+                Use <Em>Grade Now</Em> to return to the live team's panel, or open another project's card to finish a grade.
               </Step>
               <Step n={3}>
                 For each of the {criteria.length || 5} axes below, drag the slider 1–10. Use the full range —
@@ -138,7 +140,7 @@ export function JudgingBriefing() {
                     key={c.key}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
+                      gridTemplateColumns: "auto minmax(0, 1fr) auto",
                       alignItems: "center",
                       gap: 12,
                       padding: "10px 12px",
@@ -150,7 +152,7 @@ export function JudgingBriefing() {
                     <span className="readout-amber" style={{ fontSize: 14, minWidth: 40, textAlign: "right" }}>
                       {pct}%
                     </span>
-                    <div style={{ minWidth: 0 }}>
+                    <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                       <div className="stencil" style={{ fontSize: 14, color: "var(--color-bone)", lineHeight: 1.1 }}>
                         {c.label}
                       </div>
@@ -159,6 +161,7 @@ export function JudgingBriefing() {
                       </div>
                     </div>
                     <div
+                      className="briefing-criteria-bar"
                       style={{
                         width: 80,
                         height: 6,
@@ -186,16 +189,14 @@ export function JudgingBriefing() {
 
           {/* ─── Submission requirements ─── */}
           <section>
-            <SectionLabel>// Submission Must-Haves</SectionLabel>
-            <div className="flex flex-wrap gap-2">
-              <span className="chip chip--ok">✓ GITHUB / GITLAB</span>
-              <span className="chip chip--ok">✓ README</span>
-              <span className="chip chip--ok">✓ VIDEO DEMO</span>
-            </div>
-            <p className="serial mt-2" style={{ fontSize: 10, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-              Submissions missing any of these show an{" "}
-              <span style={{ color: "var(--color-amber-bright)" }}>⚠ Incomplete</span> chip.
-              You can still score them — consider completeness in your evaluation.
+            <SectionLabel>// Five verified requirements</SectionLabel>
+            <ul style={{ paddingLeft: 20, fontSize: 13, margin: 0 }}>
+              {VERIFICATION_ITEMS.map((item) => <li key={item.key}>{item.label}</li>)}
+            </ul>
+            <p style={{ fontSize: 13, margin: "8px 0 0", color: "var(--color-text-secondary)" }}>
+              The admin verifies the track, public repository, end-to-end demo video and every participant's
+              talent registration, then checks the team in on Demo Day morning. All five checks must be
+              complete before a submission can go live or receive scores.
             </p>
           </section>
 

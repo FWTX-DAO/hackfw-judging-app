@@ -9,6 +9,7 @@ import {
   weightsToMap,
 } from "../scores/scoring";
 import type { LeaderboardEntry, Score } from "../db/types";
+import { publicTeamMembers } from "../shared/submissions";
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   const [projects, scores, weights, total_judges] = await Promise.all([
@@ -31,6 +32,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     const req = checkRequirements(p);
     return {
       ...p,
+      team_members: publicTeamMembers(p.team_members),
       ...perCrit,
       avg_weighted,
       judge_count: ps.length,

@@ -16,23 +16,14 @@ import {
 } from "../scores/scoring";
 import type { Project, Score, ProjectWithScore } from "../db/types";
 import { broadcast } from "../realtime/ws";
-import { requireAdmin } from "../auth/session";
-import { sanitizeUrl } from "../util/url";
-
-const URL_FIELDS = ["github_url", "readme_url", "video_url", "devpost_url"] as const;
-
-function sanitizeUrlFieldsInPlace<T extends Partial<Project>>(patch: T): T {
-  for (const f of URL_FIELDS) {
-    if (patch[f] !== undefined) {
-      (patch as any)[f] = sanitizeUrl(patch[f]);
-    }
-  }
-  return patch;
-}
+import { getSession, requireAdmin } from "../auth/session";
+import { publicTeamMembers } from "../shared/submissions";
+import { parseProjectInput, ProjectInputError } from "./validation";
 
 export const routes = {
   "/api/projects": {
-    GET: async (_req: Request) => {
+    GET: async (req: Request) => {
+      const isAdmin = getSession(req)?.type === "admin";
       const [projects, scores, weights] = await Promise.all([
         listProjects(),
         listAllScores(),
@@ -51,6 +42,7 @@ export const routes = {
         const req = checkRequirements(p);
         return {
           ...p,
+          team_members: isAdmin ? p.team_members : publicTeamMembers(p.team_members),
           avg_weighted,
           score_count: ps.length,
           requirements_met: req.met,
@@ -64,7 +56,7 @@ export const routes = {
       const guard = requireAdmin(req);
       if (guard instanceof Response) return guard;
       try {
-        const body = (await req.json()) as Partial<Project>;
+        const body = parseProjectInput(await req.json());
         const name = (body.name || "").trim();
         const description = (body.description || "").trim();
         const team = (body.team || "").trim();
@@ -78,15 +70,17 @@ export const routes = {
           name,
           description,
           team,
-          github_url: sanitizeUrl(body.github_url),
-          readme_url: sanitizeUrl(body.readme_url),
-          video_url: sanitizeUrl(body.video_url),
-          devpost_url: sanitizeUrl(body.devpost_url),
+          github_url: body.github_url,
+          readme_url: body.readme_url,
+          video_url: body.video_url,
+          devpost_url: body.devpost_url,
+          problem_track: body.problem_track,
+          team_members: body.team_members,
         });
         broadcast("projects_updated");
         return Response.json({ id }, { status: 201 });
       } catch (e: any) {
-        return Response.json({ error: String(e?.message || e) }, { status: 500 });
+        return Response.json({ error: String(e?.message || e) }, { status: e instanceof ProjectInputError || e instanceof SyntaxError ? 400 : 500 });
       }
     },
   },
@@ -98,7 +92,7 @@ export const routes = {
       }
       const p = await getProject(id);
       if (!p) return Response.json({ error: "not found" }, { status: 404 });
-      return Response.json(p);
+      return Response.json({ ...p, team_members: getSession(req)?.type === "admin" ? p.team_members : publicTeamMembers(p.team_members) });
     },
     PUT: async (req: Request & { params: { id: string } }) => {
       const guard = requireAdmin(req);
@@ -108,13 +102,12 @@ export const routes = {
         if (!Number.isFinite(id)) {
           return Response.json({ error: "invalid id" }, { status: 400 });
         }
-        const body = (await req.json()) as Partial<Project>;
-        sanitizeUrlFieldsInPlace(body);
-        await updateProject(id, body);
+        const body = parseProjectInput(await req.json(), true);
+        if (!await updateProject(id, body)) return Response.json({ error: "not found" }, { status: 404 });
         broadcast("projects_updated");
         return Response.json({ ok: true });
       } catch (e: any) {
-        return Response.json({ error: String(e?.message || e) }, { status: 500 });
+        return Response.json({ error: String(e?.message || e) }, { status: e instanceof ProjectInputError || e instanceof SyntaxError ? 400 : 500 });
       }
     },
     DELETE: async (req: Request & { params: { id: string } }) => {
@@ -137,6 +130,10 @@ export const routes = {
       if (!Number.isFinite(id)) {
         return Response.json({ error: "invalid id" }, { status: 400 });
       }
+      const project = await getProject(id);
+      if (!project) return Response.json({ error: "not found" }, { status: 404 });
+      const requirements = checkRequirements(project);
+      if (!requirements.met) return Response.json({ error: "Verify all five requirements before starting judging", missing: requirements.missing }, { status: 409 });
       await setPresenting(id);
       broadcast("projects_updated");
       return Response.json({ ok: true });
@@ -157,30 +154,22 @@ export const routes = {
       if (guard instanceof Response) return guard;
       try {
         const body = (await req.json()) as { items?: Partial<Project>[] };
-        const items = Array.isArray(body.items) ? body.items : [];
+        if (!Array.isArray(body.items) || !body.items.length) throw new ProjectInputError("Provide at least one submission in items");
+        const submissions = body.items.map((item, index) => {
+          try {
+            if (!item || typeof item !== "object" || Array.isArray(item)) throw new ProjectInputError("Each imported submission must be an object");
+            return parseProjectInput({ ...item, team: Array.isArray(item.team) ? item.team.join(", ") : item.team });
+          } catch (error) { throw new ProjectInputError(`Submission ${index + 1}: ${(error as Error).message}`); }
+        });
         let created = 0;
-        for (const it of items) {
-          const name = (it.name || "").trim();
-          const description = (it.description || "").trim();
-          const team = Array.isArray(it.team)
-            ? it.team.map((s) => String(s).trim()).filter(Boolean).join(", ")
-            : (it.team || "").trim();
-          if (!name || !description || !team) continue;
-          await addProject({
-            name,
-            description,
-            team,
-            github_url: sanitizeUrl(it.github_url),
-            readme_url: sanitizeUrl(it.readme_url),
-            video_url: sanitizeUrl(it.video_url),
-            devpost_url: sanitizeUrl(it.devpost_url),
-          });
+        for (const submission of submissions) {
+          await addProject(submission as Partial<Project> & { name: string; description: string; team: string });
           created++;
         }
         if (created > 0) broadcast("projects_updated");
         return Response.json({ created, inserted: created });
       } catch (e: any) {
-        return Response.json({ error: String(e?.message || e) }, { status: 500 });
+        return Response.json({ error: String(e?.message || e) }, { status: e instanceof ProjectInputError || e instanceof SyntaxError ? 400 : 500 });
       }
     },
   },

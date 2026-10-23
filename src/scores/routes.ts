@@ -2,6 +2,8 @@ import { getScore, upsertScore, listScoresByProjectDetailed } from "./repo";
 import { broadcast } from "../realtime/ws";
 import { CRITERIA_KEYS } from "../db/types";
 import { getSession, requireAdmin, requireJudge } from "../auth/session";
+import { getProject } from "../projects/repo";
+import { checkSubmissionRequirements } from "../shared/submissions";
 
 function validateCriterion(v: any): number | null {
   const n = Number(v);
@@ -27,6 +29,13 @@ export const routes = {
             { error: "judge_id does not match authenticated session" },
             { status: 403 }
           );
+        }
+
+        const project = await getProject(project_id);
+        if (!project) return Response.json({ error: "submission not found" }, { status: 404 });
+        const requirements = checkSubmissionRequirements(project);
+        if (!requirements.met) {
+          return Response.json({ error: "Admin verification and Demo Day check-in are required before scoring", missing: requirements.missing }, { status: 409 });
         }
 
         const parsed: Record<string, number> = {};

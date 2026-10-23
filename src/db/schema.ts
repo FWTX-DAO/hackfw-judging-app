@@ -73,6 +73,16 @@ export async function migrate() {
   await addColumnIfMissing("projects", "readme_url", "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissing("projects", "devpost_url", "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissing("projects", "presenting", "INTEGER NOT NULL DEFAULT 0");
+  // Existing submissions remain unverified until the admin reviews/checks them in.
+  await addColumnIfMissing("projects", "problem_track", "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissing("projects", "team_members", "TEXT NOT NULL DEFAULT '[]'");
+  let addedVerification = false;
+  for (const field of ["track_verified", "github_verified", "video_verified", "talent_verified", "attendance_verified"]) {
+    const added = await addColumnIfMissing("projects", field, "INTEGER NOT NULL DEFAULT 0 CHECK (" + field + " IN (0, 1))");
+    addedVerification = addedVerification || added;
+  }
+  await addColumnIfMissing("projects", "checked_in_at", "TEXT");
+  if (addedVerification) await db.execute("UPDATE projects SET presenting = 0");
 
   // scores.updated_at — separate from created_at so we don't lose the
   // first-seen timestamp when a judge edits their score. Nullable (SQLite

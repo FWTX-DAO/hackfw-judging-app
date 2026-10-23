@@ -31,8 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const qc = useQueryClient();
   // Hydrate initial state synchronously from localStorage for fast first paint.
   const cachedRole = sessionStore.getRole();
-  const cachedJudge = sessionStore.getJudge();
   const cachedToken = sessionStore.getToken();
+  // Parsing the stored judge on every render creates a new object and makes
+  // the verification effect set auth continuously, starving route effects.
+  const cachedJudge = useMemo(() => sessionStore.getJudge(), [cachedToken]);
 
   const initial: AuthState = cachedToken
     ? cachedRole === "admin"

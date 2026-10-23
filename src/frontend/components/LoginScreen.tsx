@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import type { Branding, Judge } from "../lib/types";
 import { DEFAULT_BRANDING } from "../lib/types";
 import { useAuthAdmin, useAuthJudge } from "../hooks/useQueries";
@@ -21,11 +21,6 @@ export function LoginScreen({
   const judgeAuth = useAuthJudge();
   const adminAuth = useAuthAdmin();
   const error = judgeAuth.error || adminAuth.error;
-
-  const serial = useMemo(() => {
-    const hex = Math.floor(Math.random() * 0xffff).toString(16).padStart(4, "0").toUpperCase();
-    return `SN-${hex}-FWTX`;
-  }, []);
 
   const loginJudge = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,22 +53,22 @@ export function LoginScreen({
         <div className="boot-line flex items-center justify-center gap-3 mb-5">
           <span className="serial-plate">
             <span className="dot" />
-            {serial}
+            Judging Panel
           </span>
           <span className="serial-plate serial-plate--cyber">
             <span className="dot" />
-            REV 2026.04
+            Demo Day
           </span>
         </div>
 
         <h1
           className="wordmark boot-line"
           style={{
-            fontSize: "clamp(4.5rem, 16vw, 8rem)",
+            fontSize: "clamp(2rem, 10vw, 4rem)",
             margin: 0,
           }}
         >
-          {branding.name.toUpperCase()}
+          {branding.name}
         </h1>
 
         <div className="boot-line mt-4" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14 }}>
@@ -112,10 +107,9 @@ export function LoginScreen({
               whiteSpace: "pre-wrap",
             }}
           >
-{`> linking.........  [ `}<span className="readout">OK</span>{` ]
-> criteria.load... [ `}<span className="readout">OK</span>{` ]
-> judges.sync..... [ `}<span className="readout">OK</span>{` ]
-> access.mode..... awaiting operator`}<span className="caret" />
+{`01 // Watch the team demo
+02 // Grade each criterion from 1–10
+03 // Add notes and submit your score`}
           </pre>
 
           <div className="divider-measure" />
@@ -136,7 +130,7 @@ export function LoginScreen({
           </div>
 
           <p className="serial boot-line mt-5" style={{ textAlign: "center" }}>
-            Authorized operators only · terminal access logged
+            Judges: at each team transition, your view switches to live scoring automatically.
           </p>
         </div>
       )}
@@ -177,7 +171,7 @@ export function LoginScreen({
                 className="btn-primary"
                 style={{ flex: 1, justifyContent: "center" }}
               >
-                {loading ? "Verifying…" : "Engage"}
+                {loading ? "Verifying…" : "Start Judging"}
               </button>
             </div>
           </form>

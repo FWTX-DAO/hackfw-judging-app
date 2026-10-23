@@ -172,29 +172,29 @@ describe("weightsToMap", () => {
 });
 
 describe("checkRequirements", () => {
-  test("missing github is reported", () => {
-    const r = checkRequirements({ github_url: "", readme_url: "", video_url: "https://v.co/x" });
-    expect(r.met).toBe(false);
-    expect(r.missing).toContain("github");
+  const complete = {
+    problem_track: "AI for Manufacturing", team_members: [{ name: "Avery" }, { name: "Jordan" }],
+    github_url: "https://github.com/x/y", video_url: "https://youtu.be/abc",
+    track_verified: 1, github_verified: 1, video_verified: 1,
+    talent_verified: 1, attendance_verified: 1, checked_in_at: "2026-10-30T14:00:00Z",
+  };
+
+  test("links alone never verify a submission", () => {
+    expect(checkRequirements({ github_url: complete.github_url, video_url: complete.video_url }).missing)
+      .toEqual(["track", "github", "video", "talent", "attendance"]);
   });
 
-  test("github present but no video", () => {
-    const r = checkRequirements({
-      github_url: "https://github.com/x/y",
-      readme_url: "",
-      video_url: "",
-    });
-    expect(r.met).toBe(false);
-    expect(r.missing).toContain("video");
+  test("all five admin checks and evidence are required", () => {
+    expect(checkRequirements(complete)).toEqual({ met: true, missing: [] });
+    for (const [field, key] of [["track_verified", "track"], ["github_verified", "github"], ["video_verified", "video"], ["talent_verified", "talent"], ["attendance_verified", "attendance"]]) {
+      expect(checkRequirements({ ...complete, [field!]: 0 }).missing).toContain(key!);
+    }
   });
 
-  test("all three present -> met true, missing empty", () => {
-    const r = checkRequirements({
-      github_url: "https://github.com/x/y",
-      readme_url: "https://github.com/x/y/readme",
-      video_url: "https://youtu.be/abc",
-    });
-    expect(r.met).toBe(true);
-    expect(r.missing).toEqual([]);
+  test("invalid track, non-GitHub link, absent roster and absent check-in cannot pass", () => {
+    expect(checkRequirements({ ...complete, problem_track: "Unknown" }).missing).toContain("track");
+    expect(checkRequirements({ ...complete, github_url: "https://github.com.example.test/a/b" }).missing).toContain("github");
+    expect(checkRequirements({ ...complete, team_members: [] }).missing).toEqual(["talent", "attendance"]);
+    expect(checkRequirements({ ...complete, checked_in_at: null }).missing).toContain("attendance");
   });
 });

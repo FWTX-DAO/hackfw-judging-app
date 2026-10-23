@@ -122,6 +122,18 @@ export function useBulkProjects() {
   });
 }
 
+export function useUpdateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: number; patch: Partial<Project> }) =>
+      api(`/api/projects/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: qk.projects }),
+      qc.invalidateQueries({ queryKey: qk.leaderboard }),
+    ]),
+  });
+}
+
 export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({

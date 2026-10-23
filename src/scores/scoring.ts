@@ -1,4 +1,5 @@
 import { CRITERIA_KEYS, type CriteriaKey, type CriteriaWeight, type Score } from "../db/types";
+export { checkSubmissionRequirements as checkRequirements } from "../shared/submissions";
 
 export type WeightMap = Partial<Record<CriteriaKey, number>>;
 
@@ -42,19 +43,4 @@ export function perCriterionAverages(scores: Score[]): Record<`avg_${CriteriaKey
       : 0;
   }
   return out;
-}
-
-/** Must-have requirements check for judging eligibility. */
-export function checkRequirements(project: {
-  github_url: string;
-  readme_url: string;
-  video_url: string;
-}): { met: boolean; missing: string[] } {
-  const missing: string[] = [];
-  if (!project.github_url?.trim()) missing.push("github");
-  // README can live inside the GitHub repo — accept either explicit readme_url
-  // or presence of github_url (admin can verify visually)
-  if (!project.github_url?.trim() && !project.readme_url?.trim()) missing.push("readme");
-  if (!project.video_url?.trim()) missing.push("video");
-  return { met: missing.length === 0, missing };
 }

@@ -1,17 +1,16 @@
 import React, { useRef, useState } from "react";
 import {
   useAddJudge,
-  useAddProject,
   useClearPresenting,
   useCriteria,
   useDeleteJudge,
-  useDeleteProject,
   useJudges,
   useProjects,
   useSetPresenting,
   useUpdateCriteriaWeight,
 } from "../hooks/useQueries";
 import { DevpostImport } from "./DevpostImport";
+import { SubmissionManager } from "./SubmissionManager";
 
 export function AdminPanel() {
   const judgesQ = useJudges();
@@ -20,8 +19,6 @@ export function AdminPanel() {
 
   const addJudge = useAddJudge();
   const deleteJudge = useDeleteJudge();
-  const addProject = useAddProject();
-  const deleteProject = useDeleteProject();
   const setPresenting = useSetPresenting();
   const clearPresenting = useClearPresenting();
   const updateWeight = useUpdateCriteriaWeight();
@@ -32,14 +29,6 @@ export function AdminPanel() {
 
   const [jName, setJName] = useState("");
   const [jEmail, setJEmail] = useState("");
-  const [pName, setPName] = useState("");
-  const [pTeam, setPTeam] = useState("");
-  const [pDesc, setPDesc] = useState("");
-  const [pGithub, setPGithub] = useState("");
-  const [pReadme, setPReadme] = useState("");
-  const [pVideo, setPVideo] = useState("");
-  const [pDevpost, setPDevpost] = useState("");
-
   // Local override for criteria sliders so drags update visually without
   // firing one mutation per drag tick. The mutation is debounced — we only
   // commit (and broadcast) after the admin stops moving the slider.
@@ -62,19 +51,19 @@ export function AdminPanel() {
     setJEmail("");
   };
 
-  const submitProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pName || !pDesc || !pTeam) return;
-    await addProject.mutateAsync({
-      name: pName, description: pDesc, team: pTeam,
-      github_url: pGithub, readme_url: pReadme, video_url: pVideo, devpost_url: pDevpost,
-    });
-    setPName(""); setPTeam(""); setPDesc("");
-    setPGithub(""); setPReadme(""); setPVideo(""); setPDevpost("");
-  };
-
   const currentlyPresenting = projects.find((p) => p.presenting === 1) || null;
-  const error = addJudge.error || addProject.error;
+  // Keep stage order stable as scores change and new submissions arrive.
+  const presentationOrder = [...projects].sort((a, b) => a.id - b.id);
+  const activeIndex = presentationOrder.findIndex((p) => p.id === currentlyPresenting?.id);
+  const previousProject = presentationOrder[activeIndex - 1];
+  const nextProject = presentationOrder[activeIndex + 1];
+  const steeringPending = setPresenting.isPending || clearPresenting.isPending;
+  const steeringError = setPresenting.error || clearPresenting.error;
+  const activateProject = (id: number) => {
+    clearPresenting.reset();
+    setPresenting.mutate(id);
+  };
+  const error = addJudge.error;
 
   return (
     <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -84,22 +73,53 @@ export function AdminPanel() {
         </div>
       )}
 
-      {/* ─── Currently Presenting ─── */}
-      <Section title="Currently Presenting" accent="amber" action={currentlyPresenting ? (
-        <button onClick={() => clearPresenting.mutate()} className="btn-secondary">
-          Clear
+      {/* ─── Live judging control ─── */}
+      <Section title="Live Judging Control" accent="amber" action={currentlyPresenting ? (
+        <button onClick={() => { setPresenting.reset(); clearPresenting.mutate(); }} disabled={steeringPending} className="btn-secondary">
+          Pause Judging
         </button>
       ) : null}>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 12px" }}>
+          Verify and check in each team below, then use Previous and Next or select any ready team. Connected judges automatically switch to
+          Live Judging with that team's scoring panel open. Judges still select Submit Score to save each grade.
+          Pause judging between presentations so judges can finish their grades.
+        </p>
+        <p role="status" style={{ fontSize: 14, margin: "0 0 12px", color: "var(--color-bone)" }}>
+          {currentlyPresenting
+            ? `Active judging: ${currentlyPresenting.name} (${activeIndex + 1} of ${projects.length})`
+            : "No active submission. Start judging or select a team to bring judges into its scoring panel."}
+        </p>
+        {steeringError && (
+          <p role="alert" style={{ fontSize: 13, color: "var(--color-rust)", margin: "0 0 12px" }}>
+            Unable to change the active submission: {(steeringError as Error).message}. Try again.
+          </p>
+        )}
         {projects.length === 0 ? (
           <p className="serial">// Add submissions first</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {projects.map((p) => {
+            <div className="flex flex-wrap gap-2 mb-3">
+              {currentlyPresenting ? (
+                <>
+                  <button onClick={() => previousProject && activateProject(previousProject.id)} disabled={steeringPending || !previousProject?.requirements_met} className="btn-secondary">
+                    ← Previous Submission
+                  </button>
+                  <button onClick={() => nextProject && activateProject(nextProject.id)} disabled={steeringPending || !nextProject?.requirements_met} className="btn-primary">
+                    Next Submission →
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => nextProject && activateProject(nextProject.id)} disabled={steeringPending || !nextProject?.requirements_met} className="btn-primary">
+                  Start Judging
+                </button>
+              )}
+            </div>
+            {presentationOrder.map((p, index) => {
               const isLive = p.presenting === 1;
               return (
                 <label
                   key={p.id}
-                  className="flex items-center gap-3 cursor-pointer"
+                  className="flex flex-wrap items-center gap-3 cursor-pointer"
                   style={{
                     padding: "10px 12px",
                     background: isLive ? "var(--dim-amber)" : "transparent",
@@ -111,13 +131,15 @@ export function AdminPanel() {
                     type="radio"
                     name="presenting"
                     checked={isLive}
-                    onChange={() => setPresenting.mutate(p.id)}
+                    disabled={steeringPending || !p.requirements_met}
+                    onChange={() => activateProject(p.id)}
                     style={{ accentColor: "var(--color-amber)" }}
                   />
                   <span className="stencil" style={{ fontSize: 15, color: "var(--color-bone)" }}>
-                    {p.name}
+                    {index + 1}. {p.name}
                   </span>
                   <span className="chip chip--team">{p.team}</span>
+                  {!p.requirements_met && <span className="chip chip--warn">Verification pending</span>}
                   {isLive && <span className="serial-plate serial-plate--live flicker"><span className="dot" />Live</span>}
                 </label>
               );
@@ -125,6 +147,8 @@ export function AdminPanel() {
           </div>
         )}
       </Section>
+
+      <SubmissionManager projects={presentationOrder} />
 
       {/* ─── Authorize judges ─── */}
       <Section title="Authorize Judges">
@@ -155,59 +179,6 @@ export function AdminPanel() {
 
       {/* ─── Devpost import ─── */}
       <DevpostImport />
-
-      {/* ─── Single submission ─── */}
-      <Section title="Add Single Submission">
-        <form onSubmit={submitProject} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="flex flex-wrap gap-2">
-            <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="project name" required className="input-field" style={{ flex: 1, minWidth: 140 }} />
-            <input value={pTeam} onChange={(e) => setPTeam(e.target.value)} placeholder="team name" required className="input-field" style={{ flex: 1, minWidth: 140 }} />
-          </div>
-          <textarea value={pDesc} onChange={(e) => setPDesc(e.target.value)} placeholder="project description" required rows={2} className="input-field" style={{ resize: "none" }} />
-          <input value={pGithub} onChange={(e) => setPGithub(e.target.value)} placeholder="github url" className="input-field" />
-          <input value={pReadme} onChange={(e) => setPReadme(e.target.value)} placeholder="readme url" className="input-field" />
-          <input value={pVideo} onChange={(e) => setPVideo(e.target.value)} placeholder="video url" className="input-field" />
-          <input value={pDevpost} onChange={(e) => setPDevpost(e.target.value)} placeholder="devpost url (optional)" className="input-field" />
-          <button type="submit" disabled={addProject.isPending} className="btn-primary">
-            {addProject.isPending ? "Adding…" : "Add Submission"}
-          </button>
-        </form>
-      </Section>
-
-      {/* ─── Alignment check ─── */}
-      <Section title="Submission Alignment Check">
-        {projects.length === 0 ? (
-          <p className="serial">// No submissions yet</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {projects.map((p) => {
-              const hasGithub = !!p.github_url;
-              const hasReadme = !!p.readme_url || !!p.github_url;
-              const hasVideo = !!p.video_url;
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between flex-wrap gap-3"
-                  style={{ padding: "10px 12px", background: "var(--color-ink)", border: "1px solid var(--color-border)", borderRadius: 2 }}
-                >
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="stencil" style={{ fontSize: 14, color: "var(--color-bone)" }}>{p.name}</span>
-                      <span className="chip chip--team">{p.team}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className={hasGithub ? "chip chip--ok" : "chip chip--danger"}>{hasGithub ? "✓" : "✗"} GITHUB</span>
-                      <span className={hasReadme ? "chip chip--ok" : "chip chip--danger"}>{hasReadme ? "✓" : "✗"} README</span>
-                      <span className={hasVideo ? "chip chip--ok" : "chip chip--danger"}>{hasVideo ? "✓" : "✗"} VIDEO</span>
-                    </div>
-                  </div>
-                  <button onClick={() => deleteProject.mutate(p.id)} className="btn-danger">Delete</button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Section>
 
       {/* ─── Criteria weights ─── */}
       <Section title="Criteria Weights">

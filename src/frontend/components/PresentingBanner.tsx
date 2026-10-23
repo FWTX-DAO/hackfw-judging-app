@@ -1,5 +1,6 @@
 import React from "react";
 import type { Project } from "../lib/types";
+import { requirementLabel } from "../../shared/submissions";
 
 export function PresentingBanner({
   project,
@@ -44,7 +45,7 @@ export function PresentingBanner({
             <span className="chip chip--team">{project.team}</span>
             {!project.requirements_met && (
               <span className="chip chip--danger">
-                ⚠ Missing: {project.missing_requirements.join(" / ")}
+                ⚠ Pending: {project.missing_requirements.map(requirementLabel).join(" / ")}
               </span>
             )}
           </div>

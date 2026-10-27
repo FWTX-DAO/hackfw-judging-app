@@ -9,14 +9,9 @@ The release runs **one Bun 1.4.4 process on one machine**, with API, WebSockets 
 ```bash
 bun install --frozen-lockfile
 bun run check
-bunx playwright install chromium
-bun run smoke
-bun audit
-docker build -t hackfw-judging:release .
-bun scripts/container-smoke.ts hackfw-judging:release
 ```
 
-These checks create disposable databases/volumes. Browser evidence is in `out/production-audit/`. CI runs the same build, API/backup, browser and container checks; local success is separate from a successful GitHub Actions run on the deployed commit.
+Then deploy with the Fly CLI below. `bun run smoke` and `bun scripts/container-smoke.ts IMAGE` are optional deeper checks for browser or Docker changes; they create disposable databases/volumes. Browser evidence is in `out/production-audit/`. This repository does not require a CI workflow to deploy.
 
 ## Required production settings
 

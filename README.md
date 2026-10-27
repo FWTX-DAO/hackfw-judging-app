@@ -92,7 +92,7 @@ bun run smoke                   # desktop + mobile event rehearsal
 bun audit                       # current dependency advisories
 ```
 
-Use Bun **1.4.4**, pinned in `.bun-version`, `package.json`, Docker and CI. Rehearsals use disposable databases. Generated screenshots and reports are written to ignored `out/`; they are not repository source files.
+Use Bun **1.4.4**, pinned in `.bun-version`, `package.json` and Docker. Run `bun run check` locally, then deploy with the Fly CLI as described in [DEPLOY.md](./DEPLOY.md). Browser and container rehearsals are optional for changes affecting those flows. Rehearsals use disposable databases. Generated screenshots and reports are written to ignored `out/`; they are not repository source files.
 
 ## Security
 

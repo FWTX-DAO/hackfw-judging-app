@@ -154,7 +154,7 @@ export const routes = {
       if (guard instanceof Response) return guard;
       try {
         const body = (await req.json()) as { items?: Partial<Project>[] };
-        if (!Array.isArray(body.items) || !body.items.length) throw new ProjectInputError("Provide at least one submission in items");
+        if (!Array.isArray(body?.items) || !body.items.length) throw new ProjectInputError("Provide at least one submission in items");
         const submissions = body.items.map((item, index) => {
           try {
             if (!item || typeof item !== "object" || Array.isArray(item)) throw new ProjectInputError("Each imported submission must be an object");

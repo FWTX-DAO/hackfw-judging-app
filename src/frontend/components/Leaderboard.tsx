@@ -77,7 +77,7 @@ function StandingCard({ entry, place, criteria, totalJudges, presentation }: Car
     </span>
     <span className="standings-score">
       {place ? <span className="standings-points">
-        <strong aria-label={`Weighted score ${entry.avg_weighted.toFixed(1)} out of 10`}>{entry.avg_weighted.toFixed(1)}</strong>
+        <strong aria-label={`Weighted score ${entry.avg_weighted.toFixed(2)} out of 10`}>{entry.avg_weighted.toFixed(2)}</strong>
         <span aria-hidden="true">/10</span>
       </span> : entry.requirements_met
         ? <span className="standings-tag">Awaiting scores</span>

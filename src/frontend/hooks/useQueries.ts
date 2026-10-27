@@ -60,10 +60,10 @@ export function useJudgeScore(projectId: number, judgeId: number, enabled = true
 
 export function useAuthJudge() {
   return useMutation({
-    mutationFn: (email: string) =>
+    mutationFn: ({ email, code }: { email: string; code: string }) =>
       api<Judge & { token: string }>("/api/auth", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, code }),
       }),
   });
 }
@@ -171,9 +171,13 @@ export function useAddJudge() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { name: string; email: string }) =>
-      api<{ id: number }>("/api/judges", { method: "POST", body: JSON.stringify(body) }),
+      api<{ id: number; code: string }>("/api/judges", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.judges }),
   });
+}
+
+export function useResetJudgeCode() {
+  return useMutation({ mutationFn: (id: number) => api<{ code: string }>(`/api/judges/${id}/access-code`, { method: "POST" }) });
 }
 
 export function useDeleteJudge() {

@@ -6,7 +6,7 @@ import { getProject } from "../projects/repo";
 import { checkSubmissionRequirements } from "../shared/submissions";
 
 function validateCriterion(v: any): number | null {
-  const n = Number(v);
+  const n = typeof v === "number" ? v : NaN;
   if (!Number.isFinite(n) || n < 1 || n > 10 || !Number.isInteger(n)) return null;
   return n;
 }
@@ -14,13 +14,14 @@ function validateCriterion(v: any): number | null {
 export const routes = {
   "/api/scores": {
     POST: async (req: Request) => {
-      const guard = requireJudge(req);
+      const guard = await requireJudge(req);
       if (guard instanceof Response) return guard;
       try {
         const body = (await req.json()) as any;
+        if (!body || typeof body !== "object" || Array.isArray(body)) return Response.json({ error: "Expected a score object" }, { status: 400 });
         const project_id = Number(body.project_id);
         const judge_id = Number(body.judge_id);
-        if (!Number.isFinite(project_id) || !Number.isFinite(judge_id)) {
+        if (!Number.isSafeInteger(project_id) || project_id <= 0 || !Number.isSafeInteger(judge_id) || judge_id <= 0) {
           return Response.json({ error: "project_id and judge_id required" }, { status: 400 });
         }
         // A judge may only post scores as themselves.
@@ -50,6 +51,7 @@ export const routes = {
           parsed[k] = v;
         }
 
+        if (body.notes !== undefined && (typeof body.notes !== "string" || body.notes.length > 10000)) return Response.json({ error: "Notes must be text of at most 10,000 characters" }, { status: 400 });
         await upsertScore({
           project_id,
           judge_id,
@@ -64,7 +66,8 @@ export const routes = {
         broadcast("scores_updated", { project_id });
         return Response.json({ ok: true });
       } catch (e: any) {
-        return Response.json({ error: String(e?.message || e) }, { status: 500 });
+        console.error("Score submission failed", e);
+        return Response.json({ error: e instanceof SyntaxError ? "Invalid JSON" : "Unable to save score. Try again." }, { status: e instanceof SyntaxError ? 400 : 500 });
       }
     },
   },
@@ -79,6 +82,10 @@ export const routes = {
       }
       if (!session) {
         return Response.json({ error: "session required" }, { status: 401 });
+      }
+      if (session.type === "judge") {
+        const guard = await requireJudge(req);
+        if (guard instanceof Response) return guard;
       }
       if (session.type === "judge" && session.judgeId !== judgeId) {
         return Response.json({ error: "forbidden" }, { status: 403 });

@@ -3,6 +3,9 @@ import { rmSync } from "node:fs";
 
 const TEST_DB = `test-hackathon-${Date.now()}.db`;
 process.env.DB_FILE = TEST_DB;
+// Never inherit production replication credentials into a disposable test DB.
+process.env.TURSO_SYNC_URL = "";
+process.env.TURSO_AUTH_TOKEN = "";
 
 // Import AFTER setting env so the client uses the test file
 const { bootstrapDb } = await import("../src/db");
@@ -57,14 +60,14 @@ describe("judges repo", () => {
     expect(judges.length).toBe(TEST_JUDGES.length);
   });
 
-  test("authenticateJudge is case-insensitive", async () => {
-    const found = await judgesRepo.authenticateJudge("JUDGE-A@TEST.LOCAL");
+  test("findJudgeByEmail is case-insensitive", async () => {
+    const found = await judgesRepo.findJudgeByEmail("JUDGE-A@TEST.LOCAL");
     expect(found).not.toBeNull();
     expect(found!.email.toLowerCase()).toBe("judge-a@test.local");
   });
 
-  test("authenticateJudge returns null for unknown email", async () => {
-    const found = await judgesRepo.authenticateJudge("nobody@example.com");
+  test("findJudgeByEmail returns null for unknown email", async () => {
+    const found = await judgesRepo.findJudgeByEmail("nobody@example.com");
     expect(found).toBeNull();
   });
 });
@@ -388,7 +391,7 @@ describe("submission HTTP workflow", () => {
     const { issueToken } = await import("../src/auth/session");
     const judge = (await judgesRepo.listJudges())[0]!;
     const admin = issueToken({ type: "admin" });
-    const judgeToken = issueToken({ type: "judge", judgeId: judge.id, email: judge.email });
+    const judgeToken = issueToken({ type: "judge", judgeId: judge.id, email: judge.email, sessionVersion: 0 });
     const request = (method: string, token: string, body?: unknown, id?: number) => Object.assign(new Request("http://test.local/api/projects", {
       method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),

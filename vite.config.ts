@@ -7,7 +7,7 @@ const API_TARGET = process.env.API_TARGET || "http://localhost:3000";
 const WS_TARGET = API_TARGET.replace(/^http/, "ws");
 
 export default defineConfig({
-  root: path.resolve(__dirname, "src/frontend"),
+  root: path.resolve(import.meta.dirname, "src/frontend"),
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
@@ -18,13 +18,13 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.resolve(__dirname, "dist"),
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src/frontend"),
+      "@": path.resolve(import.meta.dirname, "src/frontend"),
     },
   },
 });

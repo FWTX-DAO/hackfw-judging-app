@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ─── Stage 1: install + build ──────────────────────────────────────────
-FROM oven/bun:1 AS build
+FROM oven/bun:1.4.4 AS build
 WORKDIR /app
 
 # Install deps with the lockfile so the build is reproducible
@@ -13,7 +13,7 @@ COPY src ./src
 RUN bun run build
 
 # ─── Stage 2: runtime ──────────────────────────────────────────────────
-FROM oven/bun:1
+FROM oven/bun:1.4.4
 WORKDIR /app
 
 # Copy installed deps + source + built frontend
@@ -23,6 +23,7 @@ COPY --from=build /app/src ./src
 COPY --from=build /app/hackathon.config.ts ./
 COPY --from=build /app/package.json ./
 COPY --from=build /app/tsconfig.json ./
+COPY scripts/backup.ts ./scripts/backup.ts
 
 # Persistent state lives here — mount a volume to /data in production.
 # We run as root (default in oven/bun:1) because Fly volumes are root-owned
@@ -33,6 +34,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_FILE=/data/hackathon.db
 EXPOSE 3000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 CMD bun -e 'const r = await fetch("http://localhost:3000/api/health"); process.exit(r.ok ? 0 : 1)'
 
 # Bun runs the TS entry directly. SESSION_SECRET + ADMIN_PIN must be set
 # in the environment — the server refuses to boot in prod without them.

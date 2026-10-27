@@ -21,7 +21,7 @@ export const DB_PATH = resolve(DB_FILE);
 //
 // IMPORTANT — multi-machine caveat: this app uses an in-process Set of
 // WebSocket clients (src/realtime/ws.ts) for live broadcasts. If you scale
-// past ONE machine (Fly.toml currently pins to one via single-volume), each
+// past ONE machine (deploy with --ha=false and verify machine count), each
 // machine has its own broadcast set, so a score submitted to machine A is
 // only pushed to clients connected to machine A. To run multi-machine,
 // you'd need to:
@@ -43,6 +43,8 @@ export const db: Client = syncUrl
 export async function initPragmas() {
   await db.execute("PRAGMA journal_mode = WAL");
   await db.execute("PRAGMA foreign_keys = ON");
+  await db.execute("PRAGMA busy_timeout = 5000");
+  await db.execute("PRAGMA synchronous = FULL");
 }
 
 /** Optional one-shot sync trigger (no-op without syncUrl). */

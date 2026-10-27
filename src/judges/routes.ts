@@ -1,4 +1,4 @@
-import { listJudges, addJudge, deleteJudge } from "./repo";
+import { listJudges, addJudge, deleteJudge, generateJudgeCode, resetJudgeCode } from "./repo";
 import { requireAdmin } from "../auth/session";
 import { broadcast } from "../realtime/ws";
 
@@ -15,17 +15,18 @@ export const routes = {
       const guard = requireAdmin(req);
       if (guard instanceof Response) return guard;
       try {
-        const body = (await req.json()) as { name?: string; email?: string };
-        const name = (body.name || "").trim();
-        const email = (body.email || "").trim().toLowerCase();
-        if (!name || !email) {
-          return Response.json({ error: "name and email are required" }, { status: 400 });
+        const body = await req.json();
+        const name = typeof body?.name === "string" ? body.name.trim() : "";
+        const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+        if (!name || name.length > 120 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return Response.json({ error: "A name (up to 120 characters) and valid email are required" }, { status: 400 });
         }
         try {
-          const id = await addJudge(name, email);
+          const code = generateJudgeCode();
+          const id = await addJudge(name, email, code);
           // Notify other admin tabs + bumps leaderboard total_judges denominator
           broadcast("judges_updated");
-          return Response.json({ id }, { status: 201 });
+          return Response.json({ id, code }, { status: 201 });
         } catch (e: any) {
           const msg = String(e?.message || e);
           if (msg.includes("UNIQUE") || msg.includes("unique")) {
@@ -34,7 +35,7 @@ export const routes = {
           throw e;
         }
       } catch (e: any) {
-        return Response.json({ error: String(e?.message || e) }, { status: 500 });
+        return Response.json({ error: "Unable to authorize judge" }, { status: e instanceof SyntaxError ? 400 : 500 });
       }
     },
   },
@@ -46,9 +47,21 @@ export const routes = {
       if (!Number.isFinite(id)) {
         return Response.json({ error: "invalid id" }, { status: 400 });
       }
-      await deleteJudge(id);
+      if (!await deleteJudge(id)) return Response.json({ error: "Judge not found or already has scores. Reset their access code to revoke access without deleting grades." }, { status: 409 });
       broadcast("judges_updated");
       return Response.json({ ok: true });
+    },
+  },
+  "/api/judges/:id/access-code": {
+    POST: async (req: Request & { params: { id: string } }) => {
+      const guard = requireAdmin(req);
+      if (guard instanceof Response) return guard;
+      const id = Number(req.params.id);
+      if (!Number.isSafeInteger(id) || id <= 0) return Response.json({ error: "invalid id" }, { status: 400 });
+      const code = await resetJudgeCode(id);
+      if (!code) return Response.json({ error: "Judge not found" }, { status: 404 });
+      broadcast("judges_updated");
+      return Response.json({ code });
     },
   },
 };

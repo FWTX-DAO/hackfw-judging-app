@@ -55,9 +55,9 @@ const config: HackathonConfig = {
   // via the Admin UI (PIN-gated) after first deploy. Keeping emails
   // out of source means a public/forked repo never leaks the roster.
   //
-  // If you want a deploy to seed automatically, drop a `judges` array
-  // here in a private fork or via env-var bootstrap. The default ships
-  // empty.
+  // Keep the public boilerplate empty. Deployment-only judge seeding belongs
+  // in a private configuration; seeded judges need an access-code reset
+  // through the admin UI before they can sign in.
   judges: [],
 
   criteria: [

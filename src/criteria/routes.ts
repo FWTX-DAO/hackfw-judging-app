@@ -15,15 +15,15 @@ export const routes = {
       if (guard instanceof Response) return guard;
       try {
         const body = (await req.json()) as { weight?: number };
-        const weight = Number(body.weight);
-        if (!Number.isFinite(weight) || weight < 0) {
+        const weight = typeof body?.weight === "number" ? body.weight : NaN;
+        if (!Number.isFinite(weight) || weight < 0 || weight > 100) {
           return Response.json({ error: "weight must be a non-negative number" }, { status: 400 });
         }
         await updateCriteriaWeight(req.params.key, weight);
         broadcast("criteria_updated");
         return Response.json({ ok: true });
       } catch (e: any) {
-        return Response.json({ error: String(e?.message || e) }, { status: 500 });
+        return Response.json({ error: e instanceof RangeError ? e.message : "Unable to update criteria" }, { status: e instanceof RangeError || e instanceof SyntaxError ? 400 : 500 });
       }
     },
   },

@@ -1,5 +1,5 @@
 import { db } from "./client";
-import { DEFAULT_CRITERIA, SEED_JUDGES } from "./types";
+import { DEFAULT_CRITERIA } from "./types";
 import hackathonConfig from "../../hackathon.config";
 
 export async function migrate() {
@@ -45,29 +45,17 @@ export async function migrate() {
     weight REAL NOT NULL DEFAULT 20
   )`);
 
-  // Legacy schema migration: drop stale tables if old criteria keys present
+  // Never destroy historical scores automatically during a deploy.
   const legacyCheck = await db.execute({
     sql: "SELECT key FROM criteria_weights WHERE key IN ('technical_readiness','novelty','tech_debt','design_patterns') LIMIT 1",
   });
   if (legacyCheck.rows.length > 0) {
-    // Dump old scores/criteria — incompatible columns
-    await db.execute("DROP TABLE IF EXISTS scores");
-    await db.execute("DELETE FROM criteria_weights");
-    await db.execute(`CREATE TABLE IF NOT EXISTS scores (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      judge_id INTEGER NOT NULL REFERENCES judges(id) ON DELETE CASCADE,
-      technical_decisions INTEGER NOT NULL CHECK(technical_decisions BETWEEN 1 AND 10),
-      product_viability INTEGER NOT NULL CHECK(product_viability BETWEEN 1 AND 10),
-      venture_scalability INTEGER NOT NULL CHECK(venture_scalability BETWEEN 1 AND 10),
-      demo_uniqueness INTEGER NOT NULL CHECK(demo_uniqueness BETWEEN 1 AND 10),
-      reindustrialization_impact INTEGER NOT NULL CHECK(reindustrialization_impact BETWEEN 1 AND 10),
-      notes TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(project_id, judge_id)
-    )`);
+    throw new Error("Legacy scoring schema detected. Back up the database and migrate it explicitly before deploying; no scores were deleted.");
   }
+
+  // Existing judges must receive a code through the admin console before login.
+  await addColumnIfMissing("judges", "access_code_hash", "TEXT");
+  await addColumnIfMissing("judges", "session_version", "INTEGER NOT NULL DEFAULT 0");
 
   // Backfill missing columns on older project rows (idempotent best-effort)
   await addColumnIfMissing("projects", "readme_url", "TEXT NOT NULL DEFAULT ''");

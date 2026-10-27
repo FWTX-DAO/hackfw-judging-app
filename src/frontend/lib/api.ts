@@ -14,8 +14,8 @@ export async function api<T>(url: string, opts?: RequestInit): Promise<T> {
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(url, { ...opts, headers });
-  if (res.status === 401) {
-    sessionStore.clear();
+  if (res.status === 401 && token === sessionStore.getToken()) {
+    sessionStore.clear({ preserveDrafts: true });
   }
   if (!res.ok) {
     const err = (await res.json().catch(() => null)) as { error?: string } | null;

@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { isCurrentJudge } from "../judges/repo";
 
 /**
  * Stateless session tokens: `<payload_b64url>.<hmac_b64url>`.
- * Payload is a small JSON blob — no DB lookup needed on every request.
+ * Payload is signed; judge access additionally checks the current DB session version.
  *
- * Judges log in with email → get a judge token.
+ * Judges log in with email + private access code → get a judge token.
  * Admin logs in with PIN → gets an admin token.
  * Tokens carry an `exp` timestamp (ms since epoch).
  */
@@ -21,7 +22,7 @@ if (SECRET === "hackfw-dev-secret-do-not-use-in-prod") {
 
 const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-export type JudgeSession = { type: "judge"; judgeId: number; email: string; exp: number };
+export type JudgeSession = { type: "judge"; judgeId: number; email: string; sessionVersion: number; exp: number };
 export type AdminSession = { type: "admin"; exp: number };
 export type Session = JudgeSession | AdminSession;
 
@@ -46,7 +47,7 @@ export function issueToken(body: Omit<JudgeSession, "exp"> | Omit<AdminSession, 
 }
 
 export function verifyToken(token: string | null | undefined): Session | null {
-  if (!token || typeof token !== "string") return null;
+  if (!token || typeof token !== "string" || token.length > 4096) return null;
   const parts = token.split(".");
   if (parts.length !== 2) return null;
   const [payload, sig] = parts;
@@ -62,8 +63,9 @@ export function verifyToken(token: string | null | undefined): Session | null {
   try {
     const parsed = JSON.parse(b64urlDecode(payload).toString("utf8")) as Session;
     if (!parsed || typeof parsed !== "object") return null;
-    if (typeof parsed.exp !== "number" || parsed.exp < Date.now()) return null;
+    if (!Number.isFinite(parsed.exp) || parsed.exp <= Date.now()) return null;
     if (parsed.type !== "judge" && parsed.type !== "admin") return null;
+    if (parsed.type === "judge" && (!Number.isSafeInteger(parsed.judgeId) || parsed.judgeId <= 0 || typeof parsed.email !== "string" || !Number.isSafeInteger(parsed.sessionVersion))) return null;
     return parsed;
   } catch {
     return null;
@@ -83,9 +85,9 @@ export function getSession(req: Request): Session | null {
 }
 
 /** Route guards — return a Response if unauthorized, else null. */
-export function requireJudge(req: Request): { session: JudgeSession } | Response {
+export async function requireJudge(req: Request): Promise<{ session: JudgeSession } | Response> {
   const s = getSession(req);
-  if (!s || s.type !== "judge") {
+  if (!s || s.type !== "judge" || !await isCurrentJudge(s.judgeId, s.email, s.sessionVersion)) {
     return Response.json({ error: "judge session required" }, { status: 401 });
   }
   return { session: s };

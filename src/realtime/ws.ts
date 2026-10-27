@@ -68,3 +68,9 @@ export function onClose(ws: ServerWebSocket<unknown>) {
 export function clientCount() {
   return clients.size;
 }
+
+export function closeClients() {
+  if (scoresFlushTimer) clearTimeout(scoresFlushTimer);
+  for (const ws of clients) { try { ws.close(1012, "Server restarting"); } catch {} }
+  clients.clear();
+}

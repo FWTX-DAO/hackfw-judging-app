@@ -17,6 +17,7 @@ export function LoginScreen({
   const [mode, setMode] = useState<"choose" | "judge" | "admin">("choose");
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
+  const [code, setCode] = useState("");
 
   const judgeAuth = useAuthJudge();
   const adminAuth = useAuthAdmin();
@@ -24,7 +25,7 @@ export function LoginScreen({
 
   const loginJudge = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await judgeAuth.mutateAsync(email).catch(() => null);
+    const res = await judgeAuth.mutateAsync({ email, code }).catch(() => null);
     if (res) {
       const { token, ...judge } = res;
       onJudgeLogin(judge as Judge, token);
@@ -139,18 +140,22 @@ export function LoginScreen({
         <div className="plate plate--riveted animate-in" style={{ padding: "26px 22px" }}>
           <div className="flex items-center gap-2 mb-4">
             <span className="tag-square" />
-            <span className="serial">Input // Authorized Email</span>
+            <span className="serial">Judge sign in</span>
           </div>
           <form onSubmit={loginJudge} className="space-y-4">
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
+              aria-label="Judge email"
+              autoComplete="username"
               placeholder="operator@domain.tld"
               required
               autoFocus
               className="input-field"
             />
+            <input value={code} onChange={(e) => setCode(e.target.value)} type="password" aria-label="Judge access code"
+              placeholder="Access code from the event admin" autoComplete="current-password" required className="input-field" />
             {error && (
               <div className="chip chip--danger" style={{ padding: "6px 10px" }}>
                 ⚠ {(error as Error).message}
@@ -177,7 +182,7 @@ export function LoginScreen({
           </form>
 
           <p className="serial mt-5" style={{ lineHeight: 1.7 }}>
-            Pre-authorized operators only · access requests via admin
+            Use your authorized email and the private access code provided by the event admin.
           </p>
         </div>
       )}
@@ -193,6 +198,8 @@ export function LoginScreen({
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               type="password"
+              aria-label="Admin PIN"
+              autoComplete="current-password"
               placeholder="••••••••"
               required
               autoFocus

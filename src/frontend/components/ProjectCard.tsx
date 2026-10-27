@@ -33,6 +33,9 @@ export const ProjectCard = forwardRef<ProjectCardHandle, {
   // do not reset edits; full drafts also preserve grades across refresh/navigation.
   useEffect(() => {
     if (!focused || !expanded || !scoreQ.isSuccess) return;
+    // Keep in-memory edits through background refetches even if localStorage
+    // is blocked or full. Only successful submission releases this draft.
+    if (hydrated && dirty) return;
     let next = buildDefaultScore(criteria);
     if (scoreQ.data) {
       for (const criterion of criteria) {
@@ -128,7 +131,7 @@ export const ProjectCard = forwardRef<ProjectCardHandle, {
           <div className="judge-notes">
             <label htmlFor={notesId}>Judge notes <span>(optional)</span></label>
             <textarea id={notesId} value={score.notes} onChange={(event) => updateDraft({ ...score, notes: event.target.value })}
-              rows={3} className="input-field" placeholder="Strengths, risks and questions for the team" />
+              rows={3} maxLength={10000} className="input-field" placeholder="Strengths, risks and questions for the team" />
             <p>Visible to you and the admin. Included when you submit your score.</p>
           </div>
         </fieldset>

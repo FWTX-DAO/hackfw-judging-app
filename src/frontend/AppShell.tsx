@@ -13,13 +13,23 @@ import { LiveJudgingSync } from "./components/LiveJudgingSync";
  * non-login route.
  */
 export function AppShell() {
+  const { auth } = useAuth();
+  const location = useLocation();
+  const display = location.pathname === "/leaderboard" && new URLSearchParams(location.search).get("display") === "1";
+  // Keep this component mounted across judge/standings navigation so visiting
+  // standings does not look like a new stage transition.
+  return <>{auth.status === "judge" && !display && <LiveJudgingSync />}<AppSurface /></>;
+}
+
+function AppSurface() {
   const { auth, logout } = useAuth();
   const location = useLocation();
   const configQ = useAppConfig();
   const branding = configQ.data?.branding ?? DEFAULT_BRANDING;
 
   // One WebSocket connection for the whole app — invalidates queries.
-  useRealtimeSync();
+  const connected = useRealtimeSync();
+  const connectionNotice = !connected && <p role="status" className="connection-notice">Reconnecting to live updates… Checking every 15 seconds. Keep unsent grades open.</p>;
 
   useEffect(() => {
     document.title = `${branding.name} // ${branding.title_line}`;
@@ -37,11 +47,11 @@ export function AppShell() {
   const presentation = new URLSearchParams(location.search).get("display") === "1";
 
   // Login page owns its own layout
-  if (isLogin) return <Outlet />;
+  if (isLogin) return <>{connectionNotice}<Outlet /></>;
 
   if (isLeaderboard) return (
     <div className={`standings-shell ${presentation ? "standings-shell--display" : ""}`}>
-      {auth.status === "judge" && !presentation && <LiveJudgingSync />}
+      {connectionNotice}
       <header className="standings-brandbar">
         <div className="flex flex-wrap items-center gap-3">
           <span className="wordmark" style={{ fontSize: 30 }}>{branding.name}</span>
@@ -61,7 +71,7 @@ export function AppShell() {
 
   if (location.pathname === "/judge" && auth.status === "judge") return (
     <div className="judge-shell">
-      <LiveJudgingSync />
+      {connectionNotice}
       <header className="judge-header">
         <div className="judge-brand-row">
           <div><span className="wordmark" style={{ fontSize: 28 }}>{branding.name}</span><p>{branding.title_line}</p></div>
@@ -81,7 +91,7 @@ export function AppShell() {
 
   return (
     <div className="mx-auto w-full px-4 sm:px-6 pb-16 pt-8" style={{ maxWidth: 960 }}>
-      {auth.status === "judge" && <LiveJudgingSync />}
+      {connectionNotice}
       {/* Header */}
       <header className="mb-7">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">

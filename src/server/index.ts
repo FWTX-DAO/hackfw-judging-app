@@ -1,6 +1,6 @@
-import { bootstrapDb, syncNow, DB_PATH } from "../db";
-import { onOpen, onMessage, onClose } from "../realtime/ws";
-
+import { isProd, DIST_DIR } from "./environment";
+import { bootstrapDb, syncNow, DB_PATH, db } from "../db";
+import { onOpen, onMessage, onClose, closeClients } from "../realtime/ws";
 import { routes as authRoutes } from "../auth/routes";
 import { routes as judgeRoutes } from "../judges/routes";
 import { routes as projectRoutes } from "../projects/routes";
@@ -8,146 +8,133 @@ import { routes as scoreRoutes } from "../scores/routes";
 import { routes as criteriaRoutes } from "../criteria/routes";
 import { routes as leaderboardRoutes } from "../leaderboard/routes";
 import { routes as configRoutes } from "../config/routes";
-
-import { join } from "node:path";
+import { LoginLimiter } from "../auth/rateLimit";
+import { join, resolve, sep } from "node:path";
 import { existsSync } from "node:fs";
-
-const isProd = process.env.NODE_ENV === "production";
-
-// In prod, refuse to boot with the dev defaults — those would let anyone with
-// the source mint admin tokens or guess the PIN.
-if (isProd) {
-  const missing: string[] = [];
-  if (!process.env.SESSION_SECRET) missing.push("SESSION_SECRET");
-  if (!process.env.ADMIN_PIN) missing.push("ADMIN_PIN");
-  if (missing.length > 0) {
-    console.error(
-      `✖  REFUSING TO START — missing required env vars in production: ${missing.join(", ")}`
-    );
-    console.error(
-      "   Set SESSION_SECRET to a long random string and ADMIN_PIN to a non-default value."
-    );
-    process.exit(1);
-  }
-}
 
 await bootstrapDb();
 
-// Background sync tick for libSQL embedded replica (no-op unless TURSO_SYNC_URL set)
-const SYNC_TICK_MS = Number(process.env.TURSO_SYNC_TICK_MS || 30_000);
-setInterval(() => { syncNow(); }, SYNC_TICK_MS);
+const syncTimer = setInterval(() => { void syncNow(); }, Number(process.env.TURSO_SYNC_TICK_MS || 30_000));
+const loginLimiter = new LoginLimiter();
+let shuttingDown = false;
 
-// Defense-in-depth headers — even though our edge proxy (Fly) terminates TLS
-// and may set HSTS, these protect against clickjacking, MIME-sniffing, and
-// referrer leakage if someone deploys without a smart proxy in front.
-const SECURITY_HEADERS: Record<string, string> = {
+const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
 };
 
-function withSecurityHeaders(res: Response): Response {
-  const headers = new Headers(res.headers);
-  for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
-  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+function secure(res: Response, cache = "no-store"): Response {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.headers.set(key, value);
+  res.headers.set("Cache-Control", cache);
+  res.headers.set("Vary", "Authorization");
+  if (isProd) res.headers.set("Strict-Transport-Security", "max-age=31536000");
+  return res;
 }
 
-type Handler = (req: Request) => Response | Promise<Response>;
-function wrapHandler(h: Handler): Handler {
-  return async (req) => {
-    const out = await h(req);
-    return out instanceof Response ? withSecurityHeaders(out) : out;
+type Handler = (req: Request, server: Bun.Server<unknown>) => Response | Promise<Response>;
+function wrapHandler(handler: Handler): Handler {
+  return async (req, server) => {
+    if (shuttingDown) return secure(Response.json({ error: "Server restarting" }, { status: 503 }));
+    const path = new URL(req.url).pathname;
+    const login = path === "/api/auth" || path === "/api/admin/auth";
+    // Trust Fly's overwritten client-IP header only when explicitly configured.
+    const ip = (process.env.TRUST_PROXY === "fly" ? req.headers.get("fly-client-ip") : null) || server.requestIP(req)?.address || "unknown";
+    const key = `${path}:${ip}`;
+    if (login) {
+      const retry = loginLimiter.retryAfter(key);
+      if (retry) return secure(Response.json({ error: "Too many sign-in attempts. Please try again shortly." }, { status: 429, headers: { "Retry-After": String(retry) } }));
+    }
+    try {
+      const response = await handler(req, server);
+      if (login && response.status >= 400 && response.status < 500) loginLimiter.fail(key);
+      if (response.status >= 500) {
+        console.error(`Request failed: ${req.method} ${path} (${response.status})`);
+        return secure(Response.json({ error: "Unable to complete request. Please try again." }, { status: response.status }));
+      }
+      return secure(response);
+    } catch (error) {
+      console.error(`Request failed: ${req.method} ${path}`, error);
+      return secure(Response.json({ error: error instanceof SyntaxError ? "Invalid JSON" : "Unable to complete request. Please try again." }, { status: error instanceof SyntaxError ? 400 : 500 }));
+    }
   };
 }
 
 function wrapRoutes(routes: Record<string, any>): Record<string, any> {
-  const out: Record<string, any> = {};
-  for (const [path, value] of Object.entries(routes)) {
-    if (typeof value === "function") {
-      out[path] = wrapHandler(value as Handler);
-    } else if (value && typeof value === "object") {
-      const verbs: Record<string, any> = {};
-      for (const [verb, h] of Object.entries(value)) {
-        verbs[verb] = typeof h === "function" ? wrapHandler(h as Handler) : h;
-      }
-      out[path] = verbs;
-    } else {
-      out[path] = value;
-    }
-  }
-  return out;
+  return Object.fromEntries(Object.entries(routes).map(([path, value]) => [path,
+    typeof value === "function" ? wrapHandler(value) : Object.fromEntries(Object.entries(value).map(([verb, handler]) => [verb, wrapHandler(handler as Handler)])),
+  ]));
 }
 
-const apiRoutes = wrapRoutes({
-  ...configRoutes,
-  ...authRoutes,
-  ...judgeRoutes,
-  ...projectRoutes,
-  ...scoreRoutes,
-  ...criteriaRoutes,
-  ...leaderboardRoutes,
-});
-
-const port = Number(process.env.PORT || 3000);
-
-// Prod: serve Vite's built static assets from ./dist
-// Dev: Vite owns the frontend on :5173 with /api + /ws proxied here
-const DIST_DIR = join(import.meta.dir, "..", "..", "dist");
-const distExists = existsSync(DIST_DIR);
-
-Bun.serve({
-  port,
-  routes: apiRoutes,
-
+const distExists = existsSync(join(DIST_DIR, "index.html"));
+const server = Bun.serve<unknown>({
+  port: Number(process.env.PORT || 3000),
+  hostname: process.env.HOST || "0.0.0.0",
+  development: false,
+  maxRequestBodySize: 1024 * 1024,
+  routes: wrapRoutes({
+    ...configRoutes, ...authRoutes, ...judgeRoutes, ...projectRoutes,
+    ...scoreRoutes, ...criteriaRoutes, ...leaderboardRoutes,
+    "/api/health": { GET: async () => {
+      await db.execute("SELECT key FROM criteria_weights LIMIT 1");
+      return Response.json({ status: "ok" });
+    } },
+  }),
   async fetch(req, server) {
-    // WebSocket upgrade
-    if (server.upgrade(req)) return undefined;
-
-    // Serve built static files in prod
-    if (distExists) {
-      const url = new URL(req.url);
-      const path = url.pathname === "/" ? "/index.html" : url.pathname;
-      const file = Bun.file(join(DIST_DIR, path));
-      if (await file.exists()) {
-        return withSecurityHeaders(new Response(file));
-      }
-      // SPA fallback
-      const index = Bun.file(join(DIST_DIR, "index.html"));
-      if (await index.exists()) return withSecurityHeaders(new Response(index));
+    const url = new URL(req.url);
+    if (url.pathname === "/ws") {
+      const origin = req.headers.get("origin");
+      if (origin && new URL(origin).host !== url.host) return secure(new Response("Forbidden", { status: 403 }));
+      if (!shuttingDown && server.upgrade(req, { data: null })) return undefined;
+      return secure(new Response("WebSocket upgrade required", { status: 426 }));
     }
-
-    return withSecurityHeaders(new Response(
-      "API server. In dev, open the Vite frontend at http://localhost:5173",
-      { status: 404, headers: { "content-type": "text/plain" } }
-    ));
+    if (url.pathname.startsWith("/api/")) return secure(Response.json({ error: "Not found" }, { status: 404 }));
+    if (!["GET", "HEAD"].includes(req.method)) return secure(new Response("Method not allowed", { status: 405 }));
+    if (distExists) {
+      if (["/", "/index.html", "/judge", "/admin", "/leaderboard"].includes(url.pathname)) {
+        return secure(new Response(Bun.file(join(DIST_DIR, "index.html"))), "no-cache");
+      }
+      if (url.pathname.startsWith("/assets/")) {
+        let path: string;
+        try { path = resolve(DIST_DIR, `.${decodeURIComponent(url.pathname)}`); } catch { return secure(new Response("Bad path", { status: 400 })); }
+        if (path.startsWith(`${DIST_DIR}${sep}assets${sep}`) && !path.endsWith(".map")) {
+          const file = Bun.file(path);
+          if (await file.exists()) return secure(new Response(file), "public, max-age=31536000, immutable");
+        }
+      }
+    }
+    return secure(new Response("Not found", { status: 404 }));
   },
-
+  error(error) {
+    console.error("HTTP server error", error);
+    return secure(Response.json({ error: "Unable to complete request" }, { status: 500 }));
+  },
   websocket: {
-    open(ws) { onOpen(ws); },
-    message(ws, msg) { onMessage(ws, msg); },
-    close(ws) { onClose(ws); },
+    maxPayloadLength: 1024,
+    idleTimeout: 90,
+    open: onOpen,
+    message: onMessage,
+    close: onClose,
   },
 });
 
-console.log(`⚙  API ready      → http://localhost:${port}`);
-if (distExists) {
-  console.log(`◼  Static /dist   → serving built frontend`);
-} else {
-  console.log(`◼  Frontend (dev) → http://localhost:5173  (run: bun run dev:web)`);
-}
-console.log(`◼  Database       → ${DB_PATH}`);
-// Only echo the PIN in dev — prod operators set it from a secret manager.
-if (!isProd) {
-  console.log(`◼  Admin PIN      → ${process.env.ADMIN_PIN || "hackfw2026"}  (dev default; set ADMIN_PIN for prod)`);
-}
-if (process.env.TURSO_SYNC_URL) {
-  console.log(`◼  libSQL sync    → ${process.env.TURSO_SYNC_URL}`);
-}
+console.log(`API ready → http://localhost:${server.port}`);
+console.log(`Database → ${DB_PATH}`);
+if (!isProd) console.log(`Admin PIN → ${process.env.ADMIN_PIN || "hackfw2026"} (development only)`);
 
-// Graceful shutdown — flush WAL on rolling deploys.
-for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.on(sig, () => {
-    console.log(`◼  ${sig} received → shutting down`);
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    clearInterval(syncTimer);
+    const timeout = setTimeout(() => process.exit(1), 10_000);
+    timeout.unref();
+    closeClients();
+    await server.stop();
+    try { await syncNow(); await db.execute("PRAGMA wal_checkpoint(TRUNCATE)"); }
+    finally { db.close(); }
+    clearTimeout(timeout);
     process.exit(0);
   });
 }

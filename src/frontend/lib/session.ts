@@ -40,10 +40,12 @@ export const sessionStore = {
     localStorage.removeItem(JUDGE_KEY);
   },
 
-  clear() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(ROLE_KEY);
-    localStorage.removeItem(JUDGE_KEY);
+  clear({ preserveDrafts = false } = {}) {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(ROLE_KEY);
+      localStorage.removeItem(JUDGE_KEY);
+    } catch { /* Storage can be unavailable. */ }
     // Don't leave per-judge draft notes from the previous session on disk —
     // they're scoped to the previous judgeId but a different login on the
     // same browser shouldn't carry that history.
@@ -51,11 +53,12 @@ export const sessionStore = {
       const stale: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith("hackfw_draft_notes_") || k.startsWith("hackfw_draft_score_"))) stale.push(k);
+        if (!preserveDrafts && k && (k.startsWith("hackfw_draft_notes_") || k.startsWith("hackfw_draft_score_"))) stale.push(k);
       }
       for (const k of stale) localStorage.removeItem(k);
     } catch {
       // localStorage may be disabled — best effort
     }
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("hackfw-session-changed"));
   },
 };

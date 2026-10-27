@@ -3,6 +3,10 @@
   "module": "src/server/index.ts",
   "type": "module",
   "private": true,
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": "1.4.4"
+  },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"bun run dev:api\" \"bun run dev:web\"",
     "dev:api": "bun --hot src/server/index.ts",
@@ -10,9 +14,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "bun src/server/index.ts",
-    "test": "bun test"
+    "test": "bun test tests",
+    "typecheck": "tsc --noEmit",
+    "check": "bun run typecheck && bun run build && bun test tests",
+    "backup": "bun scripts/backup.ts",
+    "smoke": "bun run build && bun scripts/browser-smoke.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bun": "latest",
     "@types/react": "^19.3.0",

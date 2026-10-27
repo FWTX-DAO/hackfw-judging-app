@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { qk } from "../lib/queryClient";
 
@@ -21,11 +21,11 @@ const MAX_RECONNECT_DELAY_MS = 8_000;
 
 export function useRealtimeSync() {
   const qc = useQueryClient();
-  const wsRef = useRef<WebSocket | null>(null);
-  const closedByUnmount = useRef(false);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    closedByUnmount.current = false;
+    let closedByUnmount = false;
+    let currentSocket: WebSocket | null = null;
 
     let retry = 0;
     let reconnectTimer: number | null = null;
@@ -50,6 +50,9 @@ export function useRealtimeSync() {
       qc.invalidateQueries({ queryKey: qk.projects });
       qc.invalidateQueries({ queryKey: qk.leaderboard });
       qc.invalidateQueries({ queryKey: qk.criteria });
+      qc.invalidateQueries({ queryKey: qk.judges });
+      qc.invalidateQueries({ queryKey: ["score"] });
+      qc.invalidateQueries({ queryKey: ["session"] });
     };
 
     const connect = () => {
@@ -57,9 +60,11 @@ export function useRealtimeSync() {
       // Vite dev proxy routes /ws → server; prod is same-origin Bun
       const url = `${proto}//${window.location.host}/ws`;
       const ws = new WebSocket(url);
-      wsRef.current = ws;
+      currentSocket = ws;
 
       ws.onopen = () => {
+        if (closedByUnmount) { ws.close(); return; }
+        setConnected(true);
         retry = 0;
         lastPongAt = Date.now();
         // Resync unconditionally — closes the gap between initial query
@@ -78,6 +83,7 @@ export function useRealtimeSync() {
       };
 
       ws.onmessage = (e) => {
+        if (closedByUnmount) return;
         if (e.data === "pong") {
           lastPongAt = Date.now();
           return;
@@ -86,6 +92,10 @@ export function useRealtimeSync() {
           const { type } = JSON.parse(e.data);
           switch (type) {
             case "scores_updated":
+              qc.invalidateQueries({ queryKey: ["score"] });
+              qc.invalidateQueries({ queryKey: qk.projects });
+              qc.invalidateQueries({ queryKey: qk.leaderboard });
+              break;
             case "projects_updated":
               qc.invalidateQueries({ queryKey: qk.projects });
               qc.invalidateQueries({ queryKey: qk.leaderboard });
@@ -96,6 +106,7 @@ export function useRealtimeSync() {
               qc.invalidateQueries({ queryKey: qk.leaderboard });
               break;
             case "judges_updated":
+              qc.invalidateQueries({ queryKey: ["session"] });
               qc.invalidateQueries({ queryKey: qk.judges });
               qc.invalidateQueries({ queryKey: qk.leaderboard });
               break;
@@ -107,7 +118,8 @@ export function useRealtimeSync() {
 
       ws.onclose = () => {
         stopPing();
-        if (closedByUnmount.current) return;
+        if (closedByUnmount) return;
+        setConnected(false);
         retry++;
         // Exponential backoff with jitter — random factor in [0.5, 1.0]
         // so a server restart doesn't trigger a thundering-herd reconnect.
@@ -118,12 +130,18 @@ export function useRealtimeSync() {
     };
 
     connect();
+    // Some venue networks block WebSockets. Poll while disconnected.
+    const fallback = window.setInterval(() => {
+      if (currentSocket?.readyState !== WebSocket.OPEN) resyncAll();
+    }, 15_000);
 
     return () => {
-      closedByUnmount.current = true;
+      closedByUnmount = true;
+      window.clearInterval(fallback);
       stopReconnect();
       stopPing();
-      wsRef.current?.close();
+      currentSocket?.close();
     };
   }, [qc]);
+  return connected;
 }

@@ -1,13 +1,15 @@
-# Fly.io deploy config for HackFW judging app.
-# `fly launch --copy-config --no-deploy` to wire this up; rename app first.
+# Fly.io deployment template for the judging app.
+# Copy to ignored fly.production.toml and set app, region and volume there.
 #
 # Critical pieces:
 #  - mounted volume at /data so SQLite + WAL survive restarts
 #  - min_machines_running = 1 so live judging never cold-starts mid-event
 #  - SESSION_SECRET + ADMIN_PIN must be set as Fly secrets (not in [env])
 
-app = "hackfw-judging-fwtx"
+# app = "YOUR_APP"
 primary_region = "dfw"
+kill_signal = "SIGTERM"
+kill_timeout = 15
 
 [build]
 
@@ -15,6 +17,7 @@ primary_region = "dfw"
   NODE_ENV = "production"
   PORT = "3000"
   DB_FILE = "/data/hackathon.db"
+  TRUST_PROXY = "fly"
 
 [[mounts]]
   source = "hackfw_data"
@@ -32,6 +35,13 @@ primary_region = "dfw"
     type = "connections"
     soft_limit = 200
     hard_limit = 400
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "15s"
+    timeout = "5s"
+    method = "GET"
+    path = "/api/health"
 
 [[vm]]
   size = "shared-cpu-1x"

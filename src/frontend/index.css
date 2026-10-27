@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+.connection-notice { margin: 0; padding: 10px 16px; background: #402519; color: #fff4eb; font-size: 13px; text-align: center; }
+
 /* =============================================================
    HACKFW // MADE CHALLENGE DEMO DAY
    Industrial-Brutalist / Terminal aesthetic.

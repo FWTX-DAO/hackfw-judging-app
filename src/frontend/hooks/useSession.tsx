@@ -46,10 +46,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [auth, setAuth] = useState<AuthState>(initial);
 
+  useEffect(() => {
+    const changed = () => {
+      if (!sessionStore.getToken()) { setAuth({ status: "anon" }); qc.clear(); }
+    };
+    window.addEventListener("hackfw-session-changed", changed);
+    window.addEventListener("storage", changed);
+    return () => { window.removeEventListener("hackfw-session-changed", changed); window.removeEventListener("storage", changed); };
+  }, [qc]);
+
   // Verify the stored token with the server on mount. This keeps us honest
   // if the token was revoked, expired, or signed with an old secret.
   const sessionQ = useQuery({
-    queryKey: ["session"],
+    queryKey: ["session", cachedToken],
     queryFn: () => api<SessionEnvelope>("/api/session"),
     enabled: !!cachedToken,
     staleTime: 60_000,
@@ -60,10 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuth({ status: "anon" });
       return;
     }
-    if (sessionQ.isLoading) return;
+    // A network outage is not evidence that the token expired.
+    if (!sessionQ.isSuccess) return;
     const data = sessionQ.data;
     if (!data || !data.session) {
-      sessionStore.clear();
+      sessionStore.clear({ preserveDrafts: true });
       setAuth({ status: "anon" });
       return;
     }
@@ -71,29 +81,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuth({ status: "admin" });
     } else {
       // Use cached judge info (name) enriched with server-verified id/email
-      const merged: Judge = cachedJudge ?? {
+      const merged: Judge = {
         id: data.session.judgeId,
         email: data.session.email,
-        name: data.session.email.split("@")[0] || "Judge",
+        name: cachedJudge?.name ?? (data.session.email.split("@")[0] || "Judge"),
       };
       setAuth({ status: "judge", judge: merged });
     }
-  }, [sessionQ.data, sessionQ.isLoading, cachedToken, cachedJudge]);
+  }, [sessionQ.data, sessionQ.isSuccess, cachedToken, cachedJudge]);
 
   const setJudge = useCallback((judge: Judge, token: string) => {
+    qc.clear();
     sessionStore.setJudge(judge, token);
     setAuth({ status: "judge", judge });
     qc.invalidateQueries();
   }, [qc]);
 
   const setAdmin = useCallback((token: string) => {
+    qc.clear();
     sessionStore.setAdmin(token);
     setAuth({ status: "admin" });
     qc.invalidateQueries();
   }, [qc]);
 
   const logout = useCallback(async () => {
-    try { await api("/api/logout", { method: "POST" }); } catch { /* best-effort */ }
     sessionStore.clear();
     setAuth({ status: "anon" });
     qc.clear();

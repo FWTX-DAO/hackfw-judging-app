@@ -12,6 +12,8 @@ out/
 .env
 .env.*
 !.env.example
+# Deployment-specific copies; keep fly.toml as the reusable template.
+fly.*.toml
 
 # ─── libSQL / SQLite databases ──────────────────────────────
 *.db

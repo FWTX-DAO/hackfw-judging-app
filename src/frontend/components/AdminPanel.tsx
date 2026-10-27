@@ -8,6 +8,7 @@ import {
   useProjects,
   useSetPresenting,
   useUpdateCriteriaWeight,
+  useResetJudgeCode,
 } from "../hooks/useQueries";
 import { DevpostImport } from "./DevpostImport";
 import { SubmissionManager } from "./SubmissionManager";
@@ -19,6 +20,8 @@ export function AdminPanel() {
 
   const addJudge = useAddJudge();
   const deleteJudge = useDeleteJudge();
+  const resetCode = useResetJudgeCode();
+  const [issuedCode, setIssuedCode] = useState<{ email: string; code: string } | null>(null);
   const setPresenting = useSetPresenting();
   const clearPresenting = useClearPresenting();
   const updateWeight = useUpdateCriteriaWeight();
@@ -46,9 +49,12 @@ export function AdminPanel() {
 
   const submitJudge = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addJudge.mutateAsync({ name: jName, email: jEmail });
-    setJName("");
-    setJEmail("");
+    try {
+      const result = await addJudge.mutateAsync({ name: jName, email: jEmail });
+      setIssuedCode({ email: jEmail, code: result.code });
+      setJName("");
+      setJEmail("");
+    } catch { /* Mutation error is shown below. */ }
   };
 
   const currentlyPresenting = projects.find((p) => p.presenting === 1) || null;
@@ -63,7 +69,7 @@ export function AdminPanel() {
     clearPresenting.reset();
     setPresenting.mutate(id);
   };
-  const error = addJudge.error;
+  const error = addJudge.error || deleteJudge.error || resetCode.error || updateWeight.error || judgesQ.error || projectsQ.error || criteriaQ.error;
 
   return (
     <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -152,6 +158,13 @@ export function AdminPanel() {
 
       {/* ─── Authorize judges ─── */}
       <Section title="Authorize Judges">
+        <p className="serial mb-3">Share each private access code directly with its judge. Resetting a code signs that judge out and preserves their scores.</p>
+        {issuedCode && <div role="status" className="plate mb-3" style={{ padding: 16, overflowWrap: "anywhere" }}>
+          <p>Access code for {issuedCode.email}</p>
+          <code style={{ fontSize: 20, userSelect: "all" }}>{issuedCode.code}</code>
+          <p>Shown only here. Save it privately before dismissing.</p>
+          <button type="button" className="btn-secondary" onClick={() => setIssuedCode(null)}>Dismiss code</button>
+        </div>}
         <form onSubmit={submitJudge} className="flex flex-wrap gap-2">
           <input value={jName} onChange={(e) => setJName(e.target.value)} placeholder="judge name" required className="input-field" style={{ flex: 1, minWidth: 140 }} />
           <input value={jEmail} onChange={(e) => setJEmail(e.target.value)} placeholder="judge@email.com" required type="email" className="input-field" style={{ flex: 1, minWidth: 180 }} />
@@ -170,7 +183,15 @@ export function AdminPanel() {
                 <span className="stencil" style={{ fontSize: 14, color: "var(--color-bone)" }}>{j.name}</span>
                 <span className="serial">{j.email}</span>
               </div>
-              <button onClick={() => deleteJudge.mutate(j.id)} className="btn-danger">Remove</button>
+              <div className="flex flex-wrap gap-2">
+                <button disabled={resetCode.isPending} onClick={async () => {
+                  if (!window.confirm(`Reset the access code for ${j.name}? Their current sessions will end. Scores are preserved.`)) return;
+                  try { const result = await resetCode.mutateAsync(j.id); setIssuedCode({ email: j.email, code: result.code }); } catch {}
+                }} className="btn-secondary">Reset access code</button>
+                <button disabled={deleteJudge.isPending} onClick={() => {
+                  if (window.confirm(`Remove ${j.name}? Judges with submitted scores cannot be removed.`)) deleteJudge.mutate(j.id);
+                }} className="btn-danger">Remove</button>
+              </div>
             </div>
           ))}
           {judges.length === 0 && <p className="serial">// No judges yet</p>}

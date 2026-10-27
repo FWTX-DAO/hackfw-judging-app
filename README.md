@@ -1,8 +1,10 @@
 # HackFW Judging App
 
-Live judging for HackFW: MADE Challenge Demo Day. Includes team check-in, verified submissions, admin stage controls, weighted scoring, and a public standings display. Single Bun process backed by SQLite.
+A public-facing realtime hackathon judging boilerplate, with HackFW: MADE Challenge as the example configuration. Includes team check-in, verified submissions, admin stage controls, weighted scoring, and public standings. A single Bun process serves the API, WebSockets and React frontend, backed by SQLite.
 
-- **Judges** sign in with their pre-authorized email and score each project on five weighted axes (1–10) with private notes.
+Keep this repository as the reusable base: production secrets, judge rosters, submissions, scores and deployment-specific configuration belong in the deployment environment or persistent database. The default judge roster is empty.
+
+- **Judges** sign in with their pre-authorized email plus a private access code and score each project on five weighted axes (1–10) with private notes.
 - **Admins** log in with a PIN to authorize judges, create/edit/delete submissions and team rosters, verify requirements, check teams in, steer the live judging queue, and tune criteria weights.
 - **Observers** open `/leaderboard` for compact live standings, or `/leaderboard?display=1` for the room display. Eligible scored teams receive gold/silver/bronze place treatments; ties share a place and results remain provisional.
 
@@ -25,17 +27,17 @@ Edit `hackathon.config.ts` for branding, judge bootstrap, criteria, and theme. T
 const config: HackathonConfig = {
   branding: { name: "YourEvent", title_line: "...", tagline: "...", footer: "...",
               palette: { primary: "#F59E0B", primary_bright: "#FCD34D", accent: "#00E5A0" } },
-  judges:   [{ name: "Alice", email: "alice@example.com" }, /* ... */],
+  judges:   [], // onboard judges privately through the admin UI
   criteria: [{ key: "technical_decisions", label: "...", description: "...", weight: 20 }, /* ... */],
   requirements: { problem_track: true, github: true, video: true, talent_registration: true, in_person_demo_day: true },
 };
 ```
 
-Criterion **labels and weights** are editable live in the Admin UI. Criterion **keys** are baked into the DB schema, so changing the five default keys requires a code change.
+Criterion **weights** are editable live in the Admin UI. Labels, descriptions and default weights are seeded from the configuration when the database is first created; editing the configuration does not overwrite an existing panel's criteria. Criterion **keys** are baked into the DB schema, so changing the five default keys requires a code change.
 
 ## Day-of-event flow
 
-1. **First boot (admin)** — log in at `/` with the admin PIN, then **Authorize Judges** (name + email per judge). They can sign in immediately; no redeploy.
+1. **First boot (admin)** — log in at `/` with the admin PIN, then **Authorize Judges** (name + email per judge). Save each one-time-displayed access code and share it privately with its judge. Existing judges need **Reset access code** once after this upgrade. No redeploy is needed.
 2. **Pre-event (admin)** — add submissions in **Submissions & team check-in**, or import Devpost JSON. Edit each submission’s name, team, participant roster (name and optional admin-only email), description, problem track, GitHub, demo video, README, and Devpost links. Review the evidence and check off the track, public GitHub repository, end-to-end video, and talent registration for every participant.
 3. **Demo Day morning (admin)** — check each team in using **In-person Demo Day check-in**. The app records the timestamp. All five checks must be complete before going live or submitting a score; both API endpoints enforce this.
 4. **At each team transition (admin)** — use **Live Judging Control** to **Start Judging**, move to the **Next Submission** or **Previous Submission**, or select any team directly. Submissions follow the order they were added. Connected judges automatically switch to **Live Judging** and the team's scoring panel opens, including judges viewing the leaderboard. "Grade Now" returns them to that panel. **Pause Judging** clears the live selection between presentations and leaves judges able to finish their grades.
@@ -73,30 +75,25 @@ The schema migration is additive and runs on boot. It preserves submissions and 
 
 The judge workspace uses a compact sticky header, one focused submission at a time, 44px grading controls with precise minus/plus buttons, 16px notes input, and a sticky Submit Score bar with a safe-area inset. Evidence and the judge guide expand on demand. Submissions returns to the compact list; selecting a team opens its focused form. Admin transitions open the new active team automatically.
 
-Grades and notes are drafted per judge and submission and restored after refresh. A draft is not a submitted score. Submitted grades show a persistent confirmation, edits unlock re-submission, and failed submissions retain the draft. Logging out clears both current and legacy drafts from that browser.
+Grades and notes are drafted per judge and submission and restored after refresh. A draft is not a submitted score. Submitted grades show a persistent confirmation, edits unlock re-submission, and failed submissions retain the draft. Explicitly logging out clears both current and legacy drafts from that browser. Session expiry preserves them for the same judge after sign-in; a temporary network failure does not sign you out.
 
 ## Deploy
 
-Full guide → [`DEPLOY.md`](./DEPLOY.md). Fly.io quickstart:
+See [`DEPLOY.md`](./DEPLOY.md) for Docker/Fly setup, backup/restore and post-deploy checks. Copy `fly.toml` to ignored `fly.production.toml`, then set your own app name, region and volume there. Keep the tracked template deployment-neutral.
 
-```bash
-fly auth login
-fly launch --copy-config --no-deploy
-fly volumes create hackfw_data --region dfw --size 1
-fly secrets set \
-  SESSION_SECRET="$(openssl rand -hex 32)" \
-  ADMIN_PIN="$(openssl rand -hex 6)"
-fly deploy
-```
-
-`Dockerfile`, `fly.toml`, and `.env.example` are checked in. The app refuses to boot in production without `SESSION_SECRET` and `ADMIN_PIN`.
+Production requires a random `SESSION_SECRET` (at least 32 characters), a random `ADMIN_PIN` (at least 12 characters), an absolute `DB_FILE` on persistent storage, and the built frontend. Run exactly one machine; SQLite state and WebSocket broadcasts are local to that process.
 
 ## Test
 
 ```bash
-bun test
+bun run check                   # types, production build, unit/API/restore tests
+bunx playwright install chromium
+bun run smoke                   # desktop + mobile event rehearsal
+bun audit                       # current dependency advisories
 ```
+
+Use Bun **1.4.4**, pinned in `.bun-version`, `package.json`, Docker and CI. Rehearsals use disposable databases. Generated screenshots and reports are written to ignored `out/`; they are not repository source files.
 
 ## Security
 
-Stateless HMAC session tokens, http/https-only URL allow-list (defends against stored XSS via `javascript:` URLs), prod-secrets boot gate, defense-in-depth headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`). No application-layer rate limiting — front the app with a proxy (Cloudflare, Fly's edge) for that. Report vulnerabilities privately via email rather than public issues.
+Signed HMAC sessions; private randomly generated judge codes stored as hashes; database-backed session revocation on code reset/removal; failed-login throttling; HTTP/HTTPS link validation; production boot checks; CSP, HSTS and no-store API responses. Judge notes and participant emails are not public. Removing judges with submitted scores is blocked to preserve standings. Codes are displayed once to the admin and are never sent by email automatically. Report vulnerabilities privately rather than in public issues.

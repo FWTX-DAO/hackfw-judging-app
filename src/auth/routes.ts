@@ -1,6 +1,7 @@
-import { authenticateJudge } from "../judges/repo";
+import { authenticateJudge, findJudgeByEmail } from "../judges/repo";
 import { getSession, issueToken, requireJudge } from "./session";
 import { timingSafeEqual, createHash } from "node:crypto";
+import { reserveSignInAttempt, clearSignInAttempts, signInLimited } from "./attempts";
 
 export const routes = {
   "/api/auth": {
@@ -10,13 +11,19 @@ export const routes = {
         if (typeof body?.email !== "string" || typeof body?.code !== "string" || body.email.length > 254 || body.code.length > 128) {
           return Response.json({ error: "Email and judge access code are required" }, { status: 400 });
         }
-        const judge = await authenticateJudge(body.email, body.code);
+        const account = await findJudgeByEmail(body.email);
+        if (account) {
+          const retry = await reserveSignInAttempt(`judge:${account.id}`);
+          if (retry) return signInLimited(retry);
+        }
+        const judge = account ? await authenticateJudge(body.email, body.code) : null;
         if (!judge) {
           return Response.json(
             { error: "Invalid email or access code. Contact the event admin." },
             { status: 403 }
           );
         }
+        await clearSignInAttempts(`judge:${judge.id}`);
         const token = issueToken({
           type: "judge",
           judgeId: judge.id,
@@ -35,12 +42,16 @@ export const routes = {
       try {
         const body = await req.json();
         if (typeof body?.pin !== "string" || body.pin.length > 256) return Response.json({ error: "Admin PIN is required" }, { status: 400 });
-        const pin = body.pin.trim();
-        const expected = process.env.ADMIN_PIN || "hackfw2026";
+        const retry = await reserveSignInAttempt("admin");
+        if (retry) return signInLimited(retry);
+        const supplied = body.pin.trim();
+        const pin = /^[\d\s]+$/.test(supplied) ? supplied.replace(/\s/g, "") : supplied;
+        const expected = process.env.ADMIN_PIN?.trim() || "hackfw2026";
         const digest = (value: string) => createHash("sha256").update(value).digest();
         if (!timingSafeEqual(digest(pin), digest(expected))) {
           return Response.json({ error: "invalid pin" }, { status: 403 });
         }
+        await clearSignInAttempts("admin");
         const token = issueToken({ type: "admin" });
         return Response.json({ ok: true, token });
       } catch (e: any) {

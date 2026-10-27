@@ -21,6 +21,7 @@ try {
   const admin = await adminContext.newPage(); observe(admin);
   await admin.goto(server.url);
   await admin.getByRole("button", { name: /Admin\ Console/i }).click();
+  await expect(admin.getByLabel(/^Admin\ PIN$/i, { exact: true })).toHaveAttribute("inputmode", "numeric");
   await admin.getByLabel(/^Admin\ PIN$/i, { exact: true }).fill(testPin);
   await admin.getByRole("button", { name: /Unlock\ Console/i }).click();
   await expect(admin).toHaveURL(/\/admin$/);
@@ -30,6 +31,7 @@ try {
   const codeElement = admin.locator("code");
   await expect(codeElement).toBeVisible();
   const code = (await codeElement.textContent())!;
+  expect(code).toMatch(/^\d{6}$/);
   await admin.getByRole("button", { name: /Dismiss\ code/i }).click();
   const token = await admin.evaluate(() => localStorage.getItem("hackfw_session_token"));
   const api = async (path: string, body?: unknown, method = "POST") => {
@@ -65,6 +67,7 @@ try {
   const signIn = async () => {
     await judge.getByRole("button", { name: /Judge\ Access/i }).click();
     await judge.getByRole("textbox", { name: /Judge\ email/i }).fill("judge@example.test");
+    await expect(judge.getByLabel(/^Judge\ access\ code$/i, { exact: true })).toHaveAttribute("inputmode", "numeric");
     await judge.getByLabel(/^Judge\ access\ code$/i, { exact: true }).fill(code);
     await judge.getByRole("button", { name: /Start\ Judging/i }).click();
     await expect(judge).toHaveURL(/\/judge/);

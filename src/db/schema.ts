@@ -57,6 +57,13 @@ export async function migrate() {
   await addColumnIfMissing("judges", "access_code_hash", "TEXT");
   await addColumnIfMissing("judges", "session_version", "INTEGER NOT NULL DEFAULT 0");
 
+  // Short numeric credentials need account limits that survive process restarts.
+  await db.execute(`CREATE TABLE IF NOT EXISTS sign_in_attempts (
+    account TEXT PRIMARY KEY,
+    attempts INTEGER NOT NULL,
+    window_end INTEGER NOT NULL
+  )`);
+
   // Backfill missing columns on older project rows (idempotent best-effort)
   await addColumnIfMissing("projects", "readme_url", "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissing("projects", "devpost_url", "TEXT NOT NULL DEFAULT ''");

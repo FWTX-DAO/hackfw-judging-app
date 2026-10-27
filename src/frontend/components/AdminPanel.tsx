@@ -158,10 +158,10 @@ export function AdminPanel() {
 
       {/* ─── Authorize judges ─── */}
       <Section title="Authorize Judges">
-        <p className="serial mb-3">Share each private access code directly with its judge. Resetting a code signs that judge out and preserves their scores.</p>
+        <p className="serial mb-3">Share each private 6-digit code directly with its judge. They can reuse it throughout the event. Resetting a code signs that judge out and preserves their scores.</p>
         {issuedCode && <div role="status" className="plate mb-3" style={{ padding: 16, overflowWrap: "anywhere" }}>
           <p>Access code for {issuedCode.email}</p>
-          <code style={{ fontSize: 20, userSelect: "all" }}>{issuedCode.code}</code>
+          <code style={{ fontSize: 28, letterSpacing: "0.2em", userSelect: "all" }}>{issuedCode.code}</code>
           <p>Shown only here. Save it privately before dismissing.</p>
           <button type="button" className="btn-secondary" onClick={() => setIssuedCode(null)}>Dismiss code</button>
         </div>}

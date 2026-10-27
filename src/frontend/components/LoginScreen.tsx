@@ -155,7 +155,7 @@ export function LoginScreen({
               className="input-field"
             />
             <input value={code} onChange={(e) => setCode(e.target.value)} type="password" aria-label="Judge access code"
-              placeholder="Access code from the event admin" autoComplete="current-password" required className="input-field" />
+              inputMode="numeric" placeholder="6-digit code" autoComplete="current-password" required className="input-field" />
             {error && (
               <div className="chip chip--danger" style={{ padding: "6px 10px" }}>
                 ⚠ {(error as Error).message}
@@ -182,7 +182,7 @@ export function LoginScreen({
           </form>
 
           <p className="serial mt-5" style={{ lineHeight: 1.7 }}>
-            Use your authorized email and the private access code provided by the event admin.
+            Use your authorized email and the 6-digit code from the event admin. Keep it for signing back in during the event.
           </p>
         </div>
       )}
@@ -198,6 +198,7 @@ export function LoginScreen({
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               type="password"
+              inputMode="numeric"
               aria-label="Admin PIN"
               autoComplete="current-password"
               placeholder="••••••••"

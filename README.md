@@ -4,7 +4,7 @@ A public-facing realtime hackathon judging boilerplate, with HackFW: MADE Challe
 
 Keep this repository as the reusable base: production secrets, judge rosters, submissions, scores and deployment-specific configuration belong in the deployment environment or persistent database. The default judge roster is empty.
 
-- **Judges** sign in with their pre-authorized email plus a private access code and score each project on five weighted axes (1–10) with private notes.
+- **Judges** sign in with their pre-authorized email plus a private 6-digit code and score each project on five weighted axes (1–10) with private notes.
 - **Admins** log in with a PIN to authorize judges, create/edit/delete submissions and team rosters, verify requirements, check teams in, steer the live judging queue, and tune criteria weights.
 - **Observers** open `/leaderboard` for compact live standings, or `/leaderboard?display=1` for the room display. Eligible scored teams receive gold/silver/bronze place treatments; ties share a place and results remain provisional.
 
@@ -37,7 +37,7 @@ Criterion **weights** are editable live in the Admin UI. Labels, descriptions an
 
 ## Day-of-event flow
 
-1. **First boot (admin)** — log in at `/` with the admin PIN, then **Authorize Judges** (name + email per judge). Save each one-time-displayed access code and share it privately with its judge. Existing judges need **Reset access code** once after this upgrade. No redeploy is needed.
+1. **First boot (admin)** — log in at `/` with the admin PIN, then **Authorize Judges** (name + email per judge). Save each 6-digit code when it is displayed and share it privately with its judge. Judges reuse their code throughout the event until you reset it. Previously issued longer codes remain valid; use **Reset access code** to replace one with six digits. No redeploy is needed.
 2. **Pre-event (admin)** — add submissions in **Submissions & team check-in**, or import Devpost JSON. Edit each submission’s name, team, participant roster (name and optional admin-only email), description, problem track, GitHub, demo video, README, and Devpost links. Review the evidence and check off the track, public GitHub repository, end-to-end video, and talent registration for every participant.
 3. **Demo Day morning (admin)** — check each team in using **In-person Demo Day check-in**. The app records the timestamp. All five checks must be complete before going live or submitting a score; both API endpoints enforce this.
 4. **At each team transition (admin)** — use **Live Judging Control** to **Start Judging**, move to the **Next Submission** or **Previous Submission**, or select any team directly. Submissions follow the order they were added. Connected judges automatically switch to **Live Judging** and the team's scoring panel opens, including judges viewing the leaderboard. "Grade Now" returns them to that panel. **Pause Judging** clears the live selection between presentations and leaves judges able to finish their grades.
@@ -81,7 +81,7 @@ Grades and notes are drafted per judge and submission and restored after refresh
 
 See [`DEPLOY.md`](./DEPLOY.md) for Docker/Fly setup, backup/restore and post-deploy checks. Copy `fly.toml` to ignored `fly.production.toml`, then set your own app name, region and volume there. Keep the tracked template deployment-neutral.
 
-Production requires a random `SESSION_SECRET` (at least 32 characters), a random `ADMIN_PIN` (at least 12 characters), an absolute `DB_FILE` on persistent storage, and the built frontend. Run exactly one machine; SQLite state and WebSocket broadcasts are local to that process.
+Production requires a random `SESSION_SECRET` (at least 32 characters), an 8-digit random `ADMIN_PIN` (existing random passwords of at least 12 characters also work), an absolute `DB_FILE` on persistent storage, and the built frontend. Run exactly one machine; SQLite state and WebSocket broadcasts are local to that process. Numeric codes are reusable event credentials, not expiring one-time passwords. Each account allows at most 10 unsuccessful sign-in attempts per 15-minute window, with limits preserved across restarts; successful sign-in clears its counter. Per-IP protection also applies.
 
 ## Test
 

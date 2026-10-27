@@ -50,7 +50,7 @@ test("production rehearsal: auth, privacy, scoring, realtime, backup, restart an
     const created = await request("/api/judges", "POST", { name: "Rehearsal Judge", email: "judge@example.test" }, admin);
     expect(created.status).toBe(201);
     const judge = await created.json();
-    expect(judge.code).toHaveLength(16);
+    expect(judge.code).toMatch(/^\d{6}$/);
     expect((await request("/api/auth", "POST", { email: "judge@example.test" })).status).toBe(400);
     expect((await request("/api/auth", "POST", { email: "judge@example.test", code: "wrong" })).status).toBe(403);
     const login = await (await request("/api/auth", "POST", { email: "JUDGE@example.test", code: judge.code })).json();
@@ -105,6 +105,7 @@ test("production rehearsal: auth, privacy, scoring, realtime, backup, restart an
     expect((await (await request(`/api/scores/${project.id}/${judge.id}`, "GET", undefined, token)).json()).notes).toBe("Private judge notes");
     expect((await (await request("/api/leaderboard")).json())[0].avg_weighted).toBe(8);
     const reset = await (await request(`/api/judges/${judge.id}/access-code`, "POST", {}, admin)).json();
+    expect(reset.code).toMatch(/^\d{6}$/);
     expect((await request("/api/scores", "POST", score, token)).status).toBe(401);
     expect((await (await request("/api/session", "GET", undefined, token)).json()).session).toBeNull();
     expect((await request("/api/auth", "POST", { email: login.email, code: judge.code })).status).toBe(403);
@@ -128,6 +129,54 @@ test("production rehearsal: auth, privacy, scoring, realtime, backup, restart an
     expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
   } finally {
     socket?.close();
+    await server.stop();
+    rmSync(directory, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("numeric PIN limits follow accounts across IPs and restarts", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "hackfw-pin-limits-"));
+  const path = join(directory, "event.db");
+  let server = await startServer(path, "fly");
+  let client = 1;
+  const request = (route: string, body: unknown, token?: string) => fetch(server.url + route, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Fly-Client-IP": `192.0.2.${client++}`, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  try {
+    const adminResponse = await request("/api/admin/auth", { pin: "0481 9372" });
+    expect(adminResponse.status).toBe(200);
+    const { token } = await adminResponse.json();
+    const first = await (await request("/api/judges", { name: "First", email: "first@example.test" }, token)).json();
+    const second = await (await request("/api/judges", { name: "Second", email: "second@example.test" }, token)).json();
+    const wrongCode = first.code === "000000" ? "000001" : "000000";
+    const guesses = await Promise.all(Array.from({ length: 20 }, () => request("/api/auth", { email: " FIRST@example.test ", code: wrongCode })));
+    expect(guesses.filter(r => r.status === 403)).toHaveLength(10);
+    expect(guesses.filter(r => r.status === 429)).toHaveLength(10);
+    expect((await request("/api/auth", { email: "first@example.test", code: first.code })).status).toBe(429);
+    // Successful judges do not share the first account's failed-attempt allowance.
+    expect((await request("/api/auth", { email: "second@example.test", code: second.code })).status).toBe(200);
+    await server.stop();
+    server = await startServer(path, "fly");
+    expect((await request("/api/auth", { email: "first@example.test", code: first.code })).status).toBe(429);
+
+    for (let i = 0; i < 10; i++) expect((await request("/api/admin/auth", { pin: "00000000" })).status).toBe(403);
+    const limited = await request("/api/admin/auth", { pin: testPin });
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+    await server.stop();
+    server = await startServer(path, "fly");
+    expect((await request("/api/admin/auth", { pin: testPin })).status).toBe(429);
+
+    const fixture = new Database(path);
+    try {
+      fixture.exec("UPDATE sign_in_attempts SET window_end = 0");
+      expect((await request("/api/admin/auth", { pin: testPin })).status).toBe(200);
+      expect((await request("/api/auth", { email: "first@example.test", code: first.code })).status).toBe(200);
+      expect(fixture.query("SELECT COUNT(*) AS count FROM sign_in_attempts").get()).toEqual({ count: 0 });
+    } finally { fixture.close(); }
+  } finally {
     await server.stop();
     rmSync(directory, { recursive: true, force: true });
   }

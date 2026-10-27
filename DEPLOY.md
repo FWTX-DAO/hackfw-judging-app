@@ -24,12 +24,14 @@ These checks create disposable databases/volumes. Browser evidence is in `out/pr
 |---|---|
 | `NODE_ENV` | `production` (Docker/Fly config supplies it) |
 | `SESSION_SECRET` | Random value of at least 32 characters; generate with `openssl rand -hex 32`. Keep stable across restarts. Rotation invalidates all sessions. |
-| `ADMIN_PIN` | Random value of at least 12 characters; generate and save privately with `openssl rand -hex 12`. Do not use the dev PIN. |
+| `ADMIN_PIN` | 8 random digits; preserve leading zeros and save privately. Existing random passwords of at least 12 characters remain supported. Do not use the dev PIN. |
 | `DB_FILE` | Absolute path on the persistent volume: `/data/hackathon.db`. The volume must include WAL sidecars. |
 | `PORT` | `3000` for the provided Docker/Fly configuration |
 | `TRUST_PROXY` | `fly` only behind Fly Proxy; otherwise leave unset. Failed sign-ins use the socket IP by default. |
 
 The server refuses production startup with missing/weak/default secrets, a relative DB path or no built frontend. It cannot prove that an absolute path is mounted persistently; the operator must inspect the volume. Use local SQLite for the supported single-machine deployment. Optional Turso sync is not covered by the deployment rehearsals and is not a substitute for a backup or shared WebSocket bus.
+
+Generate an admin PIN with `bun -e 'console.log(require("node:crypto").randomInt(100_000_000).toString().padStart(8, "0"))'`. New judge codes contain six random digits and are stored with salted Argon2id hashes. Both are reusable event credentials, not expiring OTPs. Each judge account and the shared admin account allows 10 unsuccessful attempts per 15-minute window across all IP addresses. The counter survives restarts and clears on successful sign-in. Keep an authenticated admin session available during the event.
 
 ## Fly.io
 
@@ -83,7 +85,7 @@ Use a TLS-terminating reverse proxy with WebSocket support. Do not cache `/api/*
 
 ## Upgrade behavior
 
-Back up before deploying. Migration adds hashed judge access codes and session versions without removing existing scores. Existing judges must receive **Reset access code** from the admin console before their next login; prior judge tokens are rejected. Unsupported legacy scoring schemas stop startup instead of deleting data and require a separately reviewed migration.
+Back up before deploying. Migration adds hashed judge access codes, session versions, and persistent sign-in attempt counters without removing existing scores. Judges upgrading from email-only sign-in need **Reset access code** before their next login. Previously issued longer codes remain valid and their hashes are upgraded on successful login; resetting a code issues six digits and revokes the judge's existing sessions. Unsupported legacy scoring schemas stop startup instead of deleting data and require a separately reviewed migration.
 
 Team evidence edits still revoke relevant verification. Deleting a project deletes its scores after UI confirmation. Removing a judge who has scores is blocked. Use code reset to revoke access while retaining their grades.
 

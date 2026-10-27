@@ -1,9 +1,10 @@
 import { db } from "../db/client";
 import type { Judge } from "../db/types";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
-export const generateJudgeCode = () => randomBytes(8).toString("hex");
-const hashCode = (code: string) => createHash("sha256").update(code.trim().toLowerCase()).digest("hex");
+export const generateJudgeCode = () => randomInt(1_000_000).toString().padStart(6, "0");
+const normalizeCode = (code: string) => code.replace(/\s/g, "").toLowerCase();
+const hashCode = (code: string) => Bun.password.hash(normalizeCode(code), { algorithm: "argon2id", memoryCost: 19456, timeCost: 2 });
 
 export async function listJudges(): Promise<Judge[]> {
   const r = await db.execute("SELECT id, name, email, created_at FROM judges ORDER BY name");
@@ -13,7 +14,7 @@ export async function listJudges(): Promise<Judge[]> {
 export async function addJudge(name: string, email: string, code = generateJudgeCode()): Promise<number> {
   const r = await db.execute({
     sql: "INSERT INTO judges (name, email, access_code_hash) VALUES (?, ?, ?)",
-    args: [name.trim(), email.toLowerCase().trim(), hashCode(code)],
+    args: [name.trim(), email.toLowerCase().trim(), await hashCode(code)],
   });
   return Number(r.lastInsertRowid);
 }
@@ -43,9 +44,17 @@ export async function findJudgeByEmail(email: string): Promise<Judge | null> {
 export async function authenticateJudge(email: string, code: string): Promise<(Judge & { session_version: number }) | null> {
   const result = await db.execute({ sql: "SELECT * FROM judges WHERE email = ? COLLATE NOCASE", args: [email.trim().toLowerCase()] });
   const row = result.rows[0];
-  const expected = String(row?.access_code_hash ?? "0".repeat(64));
-  const matches = timingSafeEqual(Buffer.from(hashCode(code)), Buffer.from(expected));
+  const expected = String(row?.access_code_hash ?? "");
+  const legacy = /^[a-f0-9]{64}$/.test(expected);
+  const matches = legacy
+    ? timingSafeEqual(createHash("sha256").update(code.trim().toLowerCase()).digest(), Buffer.from(expected, "hex"))
+    : expected.startsWith("$argon2id$") && await Bun.password.verify(normalizeCode(code), expected);
   if (!row?.access_code_hash || !matches) return null;
+  // Keep previously issued codes valid, upgrading their storage on sign-in.
+  if (legacy) await db.execute({
+    sql: "UPDATE judges SET access_code_hash = ? WHERE id = ? AND access_code_hash = ?",
+    args: [await hashCode(code), Number(row.id), expected],
+  });
   return { id: Number(row.id), name: String(row.name), email: String(row.email), created_at: String(row.created_at), session_version: Number(row.session_version) };
 }
 
@@ -53,7 +62,7 @@ export async function resetJudgeCode(id: number): Promise<string | null> {
   const code = generateJudgeCode();
   const result = await db.execute({
     sql: "UPDATE judges SET access_code_hash = ?, session_version = session_version + 1 WHERE id = ?",
-    args: [hashCode(code), id],
+    args: [await hashCode(code), id],
   });
   return result.rowsAffected ? code : null;
 }

@@ -1,5 +1,6 @@
 import { test, expect, describe, beforeAll, afterAll } from "bun:test";
 import { rmSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 const TEST_DB = `test-hackathon-${Date.now()}.db`;
 process.env.DB_FILE = TEST_DB;
@@ -9,6 +10,7 @@ process.env.TURSO_AUTH_TOKEN = "";
 
 // Import AFTER setting env so the client uses the test file
 const { bootstrapDb } = await import("../src/db");
+const { db } = await import("../src/db/client");
 const projectsRepo = await import("../src/projects/repo");
 const judgesRepo = await import("../src/judges/repo");
 const scoresRepo = await import("../src/scores/repo");
@@ -69,6 +71,32 @@ describe("judges repo", () => {
   test("findJudgeByEmail returns null for unknown email", async () => {
     const found = await judgesRepo.findJudgeByEmail("nobody@example.com");
     expect(found).toBeNull();
+  });
+
+  test("numeric codes preserve leading zeros, use salted hashes, and legacy codes survive upgrade", async () => {
+    const first = await judgesRepo.addJudge("PIN fixture", "pin@test.local", "004217");
+    const second = await judgesRepo.addJudge("PIN fixture 2", "pin2@test.local", "004217");
+    try {
+      const hashes = await db.execute({ sql: "SELECT access_code_hash FROM judges WHERE id IN (?, ?) ORDER BY id", args: [first, second] });
+      const stored = String(hashes.rows[0]!.access_code_hash);
+      expect(stored).toStartWith("$argon2id$");
+      expect(stored).not.toBe(hashes.rows[1]!.access_code_hash);
+      expect((await judgesRepo.authenticateJudge("PIN@TEST.LOCAL", "004 217"))?.id).toBe(first);
+      expect(await judgesRepo.authenticateJudge("pin@test.local", "004218")).toBeNull();
+      const legacyCode = "af1234567890bcde";
+      await db.execute({ sql: "UPDATE judges SET access_code_hash = ? WHERE id = ?", args: [createHash("sha256").update(legacyCode).digest("hex"), first] });
+      expect((await judgesRepo.authenticateJudge("pin@test.local", legacyCode))?.id).toBe(first);
+      const upgraded = await db.execute({ sql: "SELECT access_code_hash FROM judges WHERE id = ?", args: [first] });
+      expect(String(upgraded.rows[0]!.access_code_hash)).toStartWith("$argon2id$");
+      expect((await judgesRepo.authenticateJudge("pin@test.local", legacyCode))?.id).toBe(first);
+      const code = await judgesRepo.resetJudgeCode(first);
+      expect(code).toMatch(/^\d{6}$/);
+      expect(await judgesRepo.authenticateJudge("pin@test.local", legacyCode)).toBeNull();
+      expect((await judgesRepo.authenticateJudge("pin@test.local", code!))?.session_version).toBe(1);
+    } finally {
+      await judgesRepo.deleteJudge(first);
+      await judgesRepo.deleteJudge(second);
+    }
   });
 });
 

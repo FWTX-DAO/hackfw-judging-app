@@ -9,7 +9,7 @@ async function docker(...args: string[]) {
   return stdout.trim();
 }
 const launch = () => docker("run", "-d", "--name", name, "--mount", `type=volume,source=${volume},target=/data`,
-  "-e", "SESSION_SECRET=container-rehearsal-random-fixture-32-characters", "-e", "ADMIN_PIN=container-rehearsal-pin", image);
+  "-e", "SESSION_SECRET=container-rehearsal-random-fixture-32-characters", "-e", "ADMIN_PIN=04819372", image);
 async function healthy() {
   for (let attempt = 0; attempt < 40; attempt++) {
     if (await docker("inspect", "--format", "{{.State.Health.Status}}", name) === "healthy") return;

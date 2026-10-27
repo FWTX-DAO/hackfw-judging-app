@@ -1,13 +1,13 @@
 import { resolve } from "node:path";
 
-export const testPin = "local-rehearsal-pin-2026";
+export const testPin = "04819372";
 export const testSecret = "local-rehearsal-secret-32-characters-minimum";
 export const root = resolve(import.meta.dir, "..");
 
-export async function startServer(dbFile: string) {
+export async function startServer(dbFile: string, trustProxy = "") {
   const child = Bun.spawn([Bun.which("bun")!, "src/server/index.ts"], {
     cwd: root,
-    env: { ...process.env, NODE_ENV: "production", HOST: "127.0.0.1", PORT: "0", DB_FILE: dbFile, SESSION_SECRET: testSecret, ADMIN_PIN: testPin, TURSO_SYNC_URL: "", TURSO_AUTH_TOKEN: "", TRUST_PROXY: "" },
+    env: { ...process.env, NODE_ENV: "production", HOST: "127.0.0.1", PORT: "0", DB_FILE: dbFile, SESSION_SECRET: testSecret, ADMIN_PIN: testPin, TURSO_SYNC_URL: "", TURSO_AUTH_TOKEN: "", TRUST_PROXY: trustProxy },
     stdout: "pipe", stderr: "pipe",
   });
   let logs = "";
